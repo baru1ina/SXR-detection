@@ -66,13 +66,13 @@ def train_on_multiple_shots(source_dir,
 
             for filename in file_list:
 
-                logger.info(f"--- {filename} ---")
-
                 shot = loader.load_shot(filename)
 
                 if IP_CHANNEL not in shot.channel_names:
-                    logger.info("Ip channel not found → skip")
+                    logger.warning("Ip channel not found → skip")
                     continue
+
+                logger.info(f"--- {filename} {IP_CHANNEL} ---")
 
                 ip_index = shot.channel_names.index(IP_CHANNEL)
                 ip_signal = shot.signals[:, ip_index]
@@ -80,7 +80,7 @@ def train_on_multiple_shots(source_dir,
                 plasma_interval = detect_plasma_interval(ip_signal, shot.time)
 
                 if plasma_interval is None:
-                    logger.info("No plasma detected → skip")
+                    logger.warning("No plasma detected → skip")
                     continue
 
                 t_start, t_end = plasma_interval
@@ -112,7 +112,7 @@ def train_on_multiple_shots(source_dir,
                         logger.info(f"{ch_name} → No sawtooth")
 
                 if not valid_channels:
-                    logger.info("No valid SXR channels → skip shot")
+                    logger.warning("No valid SXR channels → skip shot")
                     continue
 
                 channel_idx, interval, period = valid_channels[0]
@@ -122,7 +122,7 @@ def train_on_multiple_shots(source_dir,
                 signal = signals_plasma[start_idx:end_idx, channel_idx]
 
                 if len(signal) < 500:
-                    logger.info("Sawtooth interval too short → skip")
+                    logger.warning("Sawtooth interval too short → skip")
                     continue
 
                 signal = signal.reshape(-1, 1)
@@ -134,7 +134,7 @@ def train_on_multiple_shots(source_dir,
                 deriv = robust_scale(deriv)
 
                 if period is None:
-                    logger.info("Period not estimated → skip")
+                    logger.warning("Period not estimated → skip")
                     continue
 
                 # window_size = int((period / dt) * 0.5)
@@ -154,7 +154,7 @@ def train_on_multiple_shots(source_dir,
                 X, Y = create_windows(deriv, window_size)
 
                 if len(X) == 0:
-                    logger.info("No windows created → skip")
+                    logger.warning("No windows created → skip")
                     continue
 
                 logger.info(f"Windows created: {len(X)}")
@@ -167,7 +167,7 @@ def train_on_multiple_shots(source_dir,
                     Y_val_all.append(Y)
 
         if len(X_train_all) == 0:
-            logger.error("No valid training data collected!")
+            logger.error("No valid training data")
             return
 
         X_train = np.concatenate(X_train_all, axis=0)
@@ -181,7 +181,7 @@ def train_on_multiple_shots(source_dir,
 
             logger.info(f"Total validation windows: {len(X_val)}")
         else:
-            logger.info("No validation data → training without validation")
+            logger.warning("No validation data → training without validation")
             X_val, Y_val = None, None
 
         np.savez_compressed(

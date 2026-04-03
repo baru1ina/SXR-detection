@@ -5,14 +5,23 @@ from scipy.interpolate import interp1d
 from config.path import PATH_TO_RES_AUTOCORR
 from matplotlib.widgets import CheckButtons
 
+
+def autocorr_fft(x):
+    n = len(x)
+    f = np.fft.rfft(x, n=2*n)
+    acf = np.fft.irfft(f * np.conj(f))[:n]
+    return acf
+
+
 def autocorr_period(signal, logger, dt, min_period=0.001, max_period=0.01):
 
     # logger.info(f"Дебаг autocorr_period")
 
-    signal = signal - np.mean(signal)
+    # n = len(signal)
+    # corr = np.correlate(signal, signal, mode="full")
+    # corr = corr[len(corr)//2:]
 
-    corr = np.correlate(signal, signal, mode="full")
-    corr = corr[len(corr)//2:]
+    corr = autocorr_fft(signal)
 
     variance = np.var(signal) * len(signal)
     corr = corr / variance if variance != 0 else corr
@@ -46,7 +55,10 @@ def sliding_autocorr_period(
         min_period=0.001,
         max_period=0.01):
 
-    logger.info(f"Дебаг sliding_autocorr_period")
+    # logger.info(f"Дебаг sliding_autocorr_period")
+
+    signal = signal - np.mean(signal)
+
     window = int(window_ms * 1e-3 / dt)
     step = int(step_ms * 1e-3 / dt)
 
@@ -77,9 +89,9 @@ def sliding_autocorr_period(
     return np.array(times), np.array(periods), np.array(scores)
 
 
-def build_period_map(signal, dt):
+def build_period_map(signal, logger, dt):
 
-    times, periods, scores = sliding_autocorr_period(signal, dt)
+    times, periods, scores = sliding_autocorr_period(signal, logger, dt)
 
     valid = ~np.isnan(periods)
 

@@ -65,7 +65,6 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
     window_ratios_3_1 = []
     window_harmonic_ratios = []
 
-    logger.info(f"Дебаг fft_score_with_drift")
     logger.info(f"Параметры: окно={window_ms} мс, шаг={step_ms} мс")
     logger.info(f"Диапазон частот: {min_freq} - {max_freq} Гц")
 

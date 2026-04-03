@@ -19,7 +19,7 @@ def main(mode=None, file=None, channel_name="SXR 50 mkm", logger=None):
         mode = args.mode
         file = args.file
 
-    loader = SHTLoader(source_dir)
+    loader = SHTLoader(source_dir, logger=logger)
 
     if mode == "train":
         print("TRAIN MODE")

@@ -8,8 +8,9 @@ from config.path import ALL_CHANNELS
 
 
 class SHTLoader:
-    def __init__(self, source_dir: str):
+    def __init__(self, source_dir: str, logger):
         self.source_dir = source_dir
+        self.logger = logger
 
     def load_shot(self, filename: str,
                   channels: List[str] = None) -> Shot:
@@ -19,7 +20,7 @@ class SHTLoader:
 
         full_path = os.path.join(self.source_dir, filename)
 
-        print(f"Loading {filename} from {full_path}")
+        self.logger.info(f"Loading {filename} from {full_path}")
 
         if not os.path.exists(full_path):
             raise FileNotFoundError(f"{full_path} not found")
@@ -32,7 +33,7 @@ class SHTLoader:
 
         for ch in channels:
             if ch not in raw_data:
-                print(f"Warning: channel {ch} not found in file")
+                self.logger.warning(f"Warning: channel {ch} not found in file")
                 continue
 
             x = np.array(raw_data[ch]["x"])

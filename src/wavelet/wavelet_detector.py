@@ -209,7 +209,7 @@ class WaveletSawtoothDetector:
         return energy_norm
 
 
-    def detect(self, signal, time_plasma):
+    def detect(self, signal, time_plasma, plot_flag=True):
 
         smoothed = signal
         self.compute_cwt(smoothed)
@@ -228,8 +228,6 @@ class WaveletSawtoothDetector:
             min_distance = int(self.period / self.dt)
         else:
             local_period = np.median(self.period_map)
-            print(f"period map= {self.period_map}")
-            print(f"local_period= {local_period}")
             min_distance = int(local_period / self.dt)
 
         peaks, properties = find_peaks(
@@ -241,32 +239,33 @@ class WaveletSawtoothDetector:
         fontsize=20
         labelsize=20
 
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+        if plot_flag:
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
 
-        ax1.plot(time_plasma* 1000, signal, 'b-', label='Сигнал', alpha=0.7)
-        ax1.plot(time_plasma[peaks] * 1000, signal[peaks], 'r^',
-                 markersize=8, label='Обнаруженные срывы')
-        ax1.set_xlabel('Время (мс)', fontsize=fontsize)
-        ax1.set_ylabel('Амплитуда', fontsize=fontsize)
-        ax1.set_title('Исходный сигнал с отмеченными моментами срывов', fontsize=fontsize)
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
-        ax1.tick_params(axis='both', labelsize=labelsize)
+            ax1.plot(time_plasma* 1000, signal, 'b-', label='Сигнал', alpha=0.7)
+            ax1.plot(time_plasma[peaks] * 1000, signal[peaks], 'r^',
+                     markersize=8, label='Обнаруженные срывы')
+            ax1.set_xlabel('Время (мс)', fontsize=fontsize)
+            ax1.set_ylabel('Амплитуда', fontsize=fontsize)
+            ax1.set_title('Исходный сигнал с отмеченными моментами срывов', fontsize=fontsize)
+            ax1.legend()
+            ax1.grid(True, alpha=0.3)
+            ax1.tick_params(axis='both', labelsize=labelsize)
 
-        ax2.plot(time_plasma * 1000, energy, 'g-', label='Энергетический профиль')
-        ax2.axhline(y=threshold, color='r', linestyle='--',
-                    label=f'Порог')
-        ax2.plot(time_plasma[peaks] * 1000, energy[peaks], 'r^',
-                 markersize=8, label='Пики')
-        ax2.set_xlabel('Время (мс)',fontsize=fontsize)
-        ax2.set_ylabel('Нормированная энергия',fontsize=fontsize)
-        ax2.set_title('Энергетический профиль вейвлет-преобразования',fontsize=fontsize)
-        ax2.legend()
-        ax2.grid(True, alpha=0.3)
+            ax2.plot(time_plasma * 1000, energy, 'g-', label='Энергетический профиль')
+            ax2.axhline(y=threshold, color='r', linestyle='--',
+                        label=f'Порог')
+            ax2.plot(time_plasma[peaks] * 1000, energy[peaks], 'r^',
+                     markersize=8, label='Пики')
+            ax2.set_xlabel('Время (мс)',fontsize=fontsize)
+            ax2.set_ylabel('Нормированная энергия',fontsize=fontsize)
+            ax2.set_title('Энергетический профиль вейвлет-преобразования',fontsize=fontsize)
+            ax2.legend()
+            ax2.grid(True, alpha=0.3)
 
-        ax2.tick_params(axis='both', labelsize=labelsize)
-        plt.tight_layout()
-        plt.show()
+            ax2.tick_params(axis='both', labelsize=labelsize)
+            plt.tight_layout()
+            plt.show()
 
         return peaks, energy, threshold
 

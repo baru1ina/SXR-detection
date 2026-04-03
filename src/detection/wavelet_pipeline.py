@@ -15,20 +15,19 @@ from src.preprocessing.plasma_detection import detect_plasma_interval
 
 def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data", channel_name="SXR 50 mkm"):
 
-    loader = SHTLoader(source_dir)
+    loader = SHTLoader(source_dir, logger=logger)
 
-    logger.info(f"Loading shot: {filename}")
+    logger.info(f"Разряд: {filename}, толщина фольги: {channel_name}")
     shot = loader.load_shot(filename)
 
-    logger.info(f"Total signal length: {len(shot.time)} samples")
-    logger.info(f"dt: {shot.dt:.6e} s")
+    logger.info(f"Длина сигнала в отсчетах {len(shot.time)}")
 
     if channel_name not in shot.channel_names:
         logger.error(f"Channel '{channel_name}' not found.")
         return
 
     if "Ip внутр.(Пр2ВК) (инт.18)" not in shot.channel_names:
-        logger.error("Ip channel not found.")
+        logger.error("Ip (Ip внутр.(Пр2ВК) (инт.18)) channel not found.")
         return
 
     sxr_idx = shot.channel_names.index(channel_name)
@@ -53,8 +52,8 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
     time_plasma = shot.time[mask]
     sxr_plasma = sxr_signal[mask]
 
-    logger.info(f"Plasma samples: {len(time_plasma)}")
-    logger.info("Checking for sawtooth (hybrid detector)...")
+    logger.info(f"Длина плазменного интервала в отсчетах: {len(time_plasma)}")
+    logger.info("Проверка на наличие пилы...")
 
     signal_1d = sxr_plasma.flatten()
 
@@ -68,53 +67,49 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
         ch=channel_name+"_"+filename
     )
 
-    logger.info(f"Sawtooth detected: {has_saw}")
-    logger.info(f"Hybrid interval: {interval}")
-    logger.info(f"Estimated period: {estimated_period}")
-
     if not has_saw:
-        logger.info("No sawtooth regime detected → skipping wavelet detection.")
+        logger.warning("No sawtooth regime detected: skipping wavelet detection.")
         return
 
     logger.info(f"Sawtooth detected: {has_saw}")
 
     if estimated_period is None:
         estimated_period = 3e-3
-        logger.warning("No estimated period → using 3 ms")
+        logger.warning("No estimated period: using 3 ms")
 
     logger.info(f"Estimated sawtooth period: {estimated_period:.6e} s")
 
     logger.info("Wavelet-based reset detection...")
 
-    period_map = build_period_map(signal_1d, shot.dt)
+    period_map = build_period_map(signal_1d, logger, shot.dt)
 
     detector = WaveletSawtoothDetector(
         dt=shot.dt,
         period=estimated_period,
         period_map=period_map,
         crash_time_min=20e-6,
-        # reset_time_max=80e-6,
         crash_time_max=100e-6,
         percentile_threshold=98,
         min_period=0.25e-3,
         wavelet_name="gaus1"
-        # wavelet_name="mexh"
+        #"mexh"
     )
 
-    peaks, energy, threshold = detector.detect(signal_1d, time_plasma)
+    peaks, energy, threshold = detector.detect(signal_1d, time_plasma, plot_flag=False)
 
     diag = detector.diagnostics()
 
-    logger.info(f"Scale range used: {diag['scale_range']}")
-    logger.info(
-        f"Energy stats: mean={diag['energy_mean']:.4f}, "
-        f"std={diag['energy_std']:.4f}, "
-        f"max={diag['energy_max']:.4f}"
-    )
-    logger.info(
-        f"Energy percentiles: 95%={diag['energy_95']:.4f}, "
-        f"99%={diag['energy_99']:.4f}"
-    )
+    # logger.info(f"Scale range used: {diag['scale_range']}")
+    # logger.info(
+    #     f"Energy stats: mean={diag['energy_mean']:.4f}, "
+    #     f"std={diag['energy_std']:.4f}, "
+    #     f"max={diag['energy_max']:.4f}"
+    # )
+    # logger.info(
+    #     f"Energy percentiles: 95%={diag['energy_95']:.4f}, "
+    #     f"99%={diag['energy_99']:.4f}"
+    # )
+
     logger.info(f"Energy threshold={threshold:.4f}")
     logger.info(f"Raw detected peaks={len(peaks)}")
 
@@ -141,6 +136,4 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
     logger.info(f"Detected reset times: {crash_times}")
 
     plot_with_crashes(shot, crash_times, channel_name)
-
-
 
