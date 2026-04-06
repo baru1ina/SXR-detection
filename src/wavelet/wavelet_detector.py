@@ -228,7 +228,7 @@ class WaveletSawtoothDetector:
             min_distance = int(self.period / self.dt)
         else:
             local_period = np.median(self.period_map)
-            min_distance = int(local_period / self.dt)
+            min_distance = int(0.8*local_period / self.dt)
 
         peaks, properties = find_peaks(
             energy,

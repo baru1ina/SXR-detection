@@ -1,6 +1,7 @@
 import logging
 import sys
 
+
 class ColoredFormatter(logging.Formatter):
     COLORS = {
         'WARNING': '\033[93m',
@@ -12,23 +13,32 @@ class ColoredFormatter(logging.Formatter):
 
     def format(self, record):
         color = self.COLORS.get(record.levelname, self.RESET)
-
         formatted = super().format(record)
-
         return f"{color}{formatted}{self.RESET}"
 
 
-def setup_logger():
+def setup_logger(log_to_file=False, log_file_path="sawtooth.log"):
     logger = logging.getLogger("sawtooth")
     logger.setLevel(logging.INFO)
 
-    handler = logging.StreamHandler(sys.stdout)
-    formatter = ColoredFormatter(
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_formatter = ColoredFormatter(
         "[%(asctime)s] %(levelname)s - %(message)s",
         "%H:%M:%S"
     )
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
 
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    if log_to_file:
+        file_handler = logging.FileHandler("./logs/" + log_file_path, encoding='utf-8')
+        file_formatter = logging.Formatter(
+            "[%(asctime)s] %(levelname)s - %(message)s",
+            "%Y-%m-%d %H:%M:%S"  # Полная дата для файла
+        )
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
 
     return logger

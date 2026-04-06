@@ -6,9 +6,6 @@
 ## Установка
 
 ```bash
-git clone <url>
+git clone <https://github.com/baru1ina/SXR-detection.git>
 cd SXR-detection
-python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate  # Windows
 pip install -r requirements.txt
