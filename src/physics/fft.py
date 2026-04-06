@@ -346,9 +346,9 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
 
     classification = classify_harmonic_ratio(harmonic_ratio)
 
-    logger.warning(
-        f"Гармоническое отношение: {harmonic_ratio:.4f} ({harmonic_ratio * 100:.2f}%) | {classification}"
-    )
+    # logger.warning(
+    #     f"Гармоническое отношение: {harmonic_ratio:.4f} ({harmonic_ratio * 100:.2f}%) | {classification}"
+    # )
     logger.info(f"Пиковость спектра: {peakiness:.2f}")
     logger.info(f"Автокорреляция: {autocorr_mean:.3f}")
     logger.info(f"Отклонение от 1/n: {mean_decay:.3f}")

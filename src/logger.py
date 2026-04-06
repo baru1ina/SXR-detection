@@ -41,4 +41,16 @@ def setup_logger(log_to_file=False, log_file_path="sawtooth.log"):
         file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
 
+    def newline(n: int = 1):
+        for _ in range(n):
+            for handler in logger.handlers:
+                if isinstance(handler, logging.StreamHandler):
+                    handler.stream.write("\n")
+                    handler.flush()
+                elif isinstance(handler, logging.FileHandler):
+                    handler.stream.write("\n")
+                    handler.flush()
+
+    logger.newline = newline
+
     return logger
