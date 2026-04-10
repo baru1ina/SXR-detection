@@ -13,7 +13,7 @@ from ..physics.autocorr_period import build_period_map
 from src.preprocessing.plasma_detection import detect_plasma_interval
 
 
-def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data", channel_name="SXR 50 mkm"):
+def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data", channel_name="SXR 50 mkm", wt_threshold=1):
 
     loader = SHTLoader(source_dir, logger=logger)
 
@@ -91,8 +91,9 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
         crash_time_max=100e-6,
         percentile_threshold=98,
         min_period=0.25e-3,
-        wavelet_name="gaus1"
+        wavelet_name="gaus1",
         #"mexh"
+        wt_threshold=wt_threshold
     )
 
     peaks, energy, threshold = detector.detect(signal_1d, time_plasma, plot_flag=False)

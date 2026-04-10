@@ -12,7 +12,8 @@ from src.logger import setup_logger
 def main(mode: str,
          files_channels: Optional[List[Tuple[str, Optional[str]]]] = None,
          log_to_file: bool = True,
-         log_file_path: Optional[str] = None):
+         log_file_path: Optional[str] = None,
+         wt_thresholds: Optional[List[float]] = None):
 
     if log_file_path is None:
         log_file_path = f"log_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
@@ -32,7 +33,7 @@ def main(mode: str,
             logger.error("No files for detection")
             raise ValueError("No files for detection")
 
-        for filename, channel_name in files_channels:
+        for i, (filename, channel_name) in enumerate(files_channels):
             logger.newline()
             logger.info(f"Processing: {filename} (channel: {channel_name})")
             try:
@@ -41,41 +42,54 @@ def main(mode: str,
                     filename,
                     logger,
                     path_to_load="./data",
-                    channel_name=channel_name or "SXR 50 mkm"
+                    channel_name=channel_name or "SXR 50 mkm",
+                    wt_threshold=wt_thresholds[i]
                 )
             except Exception as e:
                 logger.error(f"Error processing {filename}: {e}")
 
 
-def parse_cli_args() -> Tuple[str, List[Tuple[str, Optional[str]]]]:
+def parse_cli_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["train", "detect"], required=True)
     parser.add_argument("--file", nargs="+", help="filenames for detection")
     parser.add_argument("--ch", nargs="+", help="channel names")
+    parser.add_argument("--wt_threshold", type=int, nargs="+", help="wavelet energy profile threshold")
     args = parser.parse_args()
     files_channels: List[Tuple[str, Optional[str]]] = []
+    wt_thresholds: List[float] = []
     if args.mode == "detect" and args.file:
         ch_list = args.ch or []
+        wt_threshold_list = args.wt_threshold or []
         for i, filename in enumerate(args.file):
             channel_name = ch_list[i] if i < len(ch_list) else None
+            wt_threshold = wt_threshold_list[i] if i < len(wt_threshold_list) else 1.0
+            print(wt_threshold, type(wt_threshold))
             files_channels.append((filename, channel_name))
+            wt_thresholds.append(wt_threshold)
+    elif args.mode == "train" and args.file:
+        pass
 
-    return args.mode, files_channels
+    return args.mode, files_channels, wt_thresholds
 
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) > 1:
-        mode, files_channels = parse_cli_args()
-        main(mode=mode, files_channels=files_channels)
+        mode, files_channels, wt_thresholds = parse_cli_args()
+        main(mode=mode, files_channels=files_channels, wt_thresholds=wt_thresholds)
     else:
         test_files_channels = [
             ("sht46358.SHT", "SXR 15 мкм"),
             ("sht39627.SHT", "SXR 15 мкм"),
             ("sht45898.SHT", "SXR 127 мкм"),
         ]
+
+        wt_thresholds = [1.5, 1, 2]
+
         main(mode="detect", files_channels=test_files_channels)
+        # main(mode="detect", files_channels=test_files_channels, wt_thresholds=wt_thresholds)
 
 # if __name__ == "__main__":
 #     logger = setup_logger(log_to_file=True, log_file_path=f"log_{datetime.now().date()} {datetime.now().hour}-{datetime.now().minute}-{datetime.now().second}.log")

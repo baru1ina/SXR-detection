@@ -19,7 +19,8 @@ class WaveletSawtoothDetector:
         percentile_threshold=99,
         min_period=1e-3,
         wavelet_name="mexh",
-        period_map=None
+        period_map=None,
+        wt_threshold=1.0
     ):
         self.dt = dt
         self.crash_time_min = crash_time_min
@@ -31,6 +32,7 @@ class WaveletSawtoothDetector:
         self.wavelet_name = wavelet_name
         self.period = period
         self.period_map = period_map
+        self.wt_threshold = wt_threshold
 
         self.scales = None
         self.coeffs = None
@@ -220,7 +222,7 @@ class WaveletSawtoothDetector:
         # threshold = np.percentile(energy, self.percentile_threshold)
         # threshold = np.mean(self.local_threshold(energy))
         # threshold = np.median(energy) + 1.5 * np.std(energy)
-        threshold = np.median(energy) + np.std(energy)
+        threshold = np.median(energy) + self.wt_threshold*np.std(energy)
         # threshold = np.percentile(energy, 95) + 1.5 * (np.percentile(energy, 75) - np.percentile(energy, 25))
 
         # min_distance = int(self.min_period / self.dt)
