@@ -1,7 +1,8 @@
 from config.path import source_dir
 from src.io.loader import SHTLoader
-from src.pipeline_train import train_on_multiple_shots
+from src.ml.train.tcn_pipeline import train_on_multiple_shots
 from src.detection.wavelet_pipeline import detect_on_shot as wavelet_detection
+from src.detection.cpd_pipeline import detect_on_shot as cpd_detection
 from typing import List, Tuple, Optional
 import argparse
 from datetime import datetime
@@ -37,13 +38,20 @@ def main(mode: str,
             logger.newline()
             logger.info(f"Processing: {filename} (channel: {channel_name})")
             try:
-                wavelet_detection(
+                # wavelet_detection(
+                #     source_dir,
+                #     filename,
+                #     logger,
+                #     path_to_load="./data",
+                #     channel_name=channel_name or "SXR 50 mkm",
+                #     wt_threshold=wt_thresholds[i]
+                # )
+                cpd_detection(
                     source_dir,
                     filename,
                     logger,
                     path_to_load="./data",
-                    channel_name=channel_name or "SXR 50 mkm",
-                    wt_threshold=wt_thresholds[i]
+                    channel_name=channel_name or "SXR 50 mkm"
                 )
             except Exception as e:
                 logger.error(f"Error processing {filename}: {e}")
@@ -80,15 +88,21 @@ if __name__ == "__main__":
         mode, files_channels, wt_thresholds = parse_cli_args()
         main(mode=mode, files_channels=files_channels, wt_thresholds=wt_thresholds)
     else:
+        # test_files_channels = [
+        #     ("sht46358.SHT", "SXR 15 мкм"),
+        #     ("sht39627.SHT", "SXR 15 мкм"),
+        #     ("sht45898.SHT", "SXR 127 мкм"),
+        # ]
+
         test_files_channels = [
-            ("sht46358.SHT", "SXR 15 мкм"),
-            ("sht39627.SHT", "SXR 15 мкм"),
-            ("sht45898.SHT", "SXR 127 мкм"),
+            ("sht46358.SHT", "SXR 50 mkm"),
+            # ("sht39627.SHT", "SXR 15 мкм"),
+            # ("sht45898.SHT", "SXR 127 мкм"),
         ]
 
-        wt_thresholds = [1.5, 1, 2]
+        # wt_thresholds = [1.5, 1, 2]
 
-        main(mode="detect", files_channels=test_files_channels)
+        main(mode="detect", files_channels=test_files_channels, log_to_file=False)
         # main(mode="detect", files_channels=test_files_channels, wt_thresholds=wt_thresholds)
 
 # if __name__ == "__main__":

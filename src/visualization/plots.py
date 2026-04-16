@@ -1,3 +1,5 @@
+import os
+
 import matplotlib.pyplot as plt
 from config.path import PATH_TO_RES_TEMP
 import numpy as np
@@ -17,7 +19,7 @@ def plot_shot(shot):
     plt.show()
 
 
-def plot_with_crashes(shot, crash_times, channel_name=None):
+def plot_with_crashes(shot, crash_times, channel_name=None, mode="wavelet"):
     fs = 20
     if channel_name is None:
         channel_name = shot.channel_names[0]
@@ -47,6 +49,6 @@ def plot_with_crashes(shot, crash_times, channel_name=None):
     plt.tick_params(axis='both', labelsize=fs)
     # plt.legend()
     plt.grid(True)
-
-    plt.savefig(f"{PATH_TO_RES_TEMP}/{channel_name}_{shot.metadata['file']}_with_crashes.png")
+    os.makedirs(f"{PATH_TO_RES_TEMP}/{mode}", exist_ok=True)
+    plt.savefig(f"{PATH_TO_RES_TEMP}/{mode}/{channel_name}_{shot.metadata['file']}_with_crashes.png")
     plt.show()

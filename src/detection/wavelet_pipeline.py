@@ -1,19 +1,21 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 from src.io.loader import SHTLoader
-from src.preprocessing.cleaning import remove_mean
-from src.preprocessing.normalization import robust_scale
 
 from src.visualization.plots import plot_with_crashes
 
-from src.wavelet.wavelet_detector import WaveletSawtoothDetector
+from src.detection.models.wavelet_detector import WaveletSawtoothDetector
 from src.physics.sawtooth_filter import detect_sawtooth_hybrid
-from ..physics.autocorr_period import build_period_map
+from src.physics.autocorr_period import build_period_map
 from src.preprocessing.plasma_detection import detect_plasma_interval
 
 
-def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data", channel_name="SXR 50 mkm", wt_threshold=1):
+def detect_on_shot(source_dir,
+                   filename,
+                   logger,
+                   path_to_load="./data/model_data",
+                   channel_name="SXR 50 mkm",
+                   wt_threshold=1):
 
     loader = SHTLoader(source_dir, logger=logger)
 
@@ -98,7 +100,7 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
 
     peaks, energy, threshold = detector.detect(signal_1d, time_plasma, plot_flag=False)
 
-    diag = detector.diagnostics()
+    # diag = detector.diagnostics()
 
     # logger.info(f"Scale range used: {diag['scale_range']}")
     # logger.info(
@@ -136,5 +138,5 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
     logger.info(f"Final detected reset count: {len(crash_times)}")
     logger.info(f"Detected reset times: {crash_times}")
 
-    plot_with_crashes(shot, crash_times, channel_name)
+    plot_with_crashes(shot, crash_times, channel_name, mode="wavelet")
 

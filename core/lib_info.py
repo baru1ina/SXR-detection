@@ -1,6 +1,4 @@
 import shtRipper
-from src.pipeline_singleshot import run_pipeline
-
 
 print("Все атрибуты модуля shtRipper:")
 print(dir(shtRipper))

@@ -16,7 +16,11 @@ from src.anomaly.events import group_crashes
 from src.visualization.plots import plot_with_crashes
 from src.ml.models.model_io import load_model
 
-def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data", channel_name="SXR 50 mkm"):
+def detect_on_shot(source_dir,
+                   filename,
+                   logger,
+                   path_to_load="./data/model_data",
+                   channel_name="SXR 50 mkm"):
 
     loader = SHTLoader(source_dir)
 
@@ -71,7 +75,6 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
         f"max={np.max(sxr_plasma):.4f}"
     )
 
-    # Производная
     deriv = compute_derivative(sxr_plasma, shot.dt)
     deriv = robust_scale(deriv)
 
@@ -83,7 +86,6 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
         f"max={np.max(deriv):.4f}"
     )
 
-    # Выдедение окон
     window_size = 1000
     logger.info(f"Using fixed window size: {window_size}")
 
@@ -102,7 +104,11 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
     model = TCNPredictor(input_dim=1)
     model_path = path_to_load + "/model_data/model_data_cropped.pt"
 
-    load_model(model, model_path)
+    try:
+        load_model(model, model_path)
+    except FileNotFoundError:
+        logger.error(f"No trained model found. Abort detection.")
+        return
     model.eval()
 
     logger.info("Model successfully loaded.")
@@ -119,7 +125,6 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
         f"std={np.std(preds):.4f}"
     )
 
-    # метрики
     logger.info("Computing anomaly score...")
 
     score = crash_score_derivative(Y, preds)
@@ -133,7 +138,6 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
         f"max={np.max(score):.4f}"
     )
 
-    # порог
     # threshold = np.mean(score) + ??? * np.std(score)
     threshold = np.percentile(score, 99)
     logger.info(f"Adaptive threshold (mean + 3σ): {threshold:.4f}")
@@ -160,7 +164,7 @@ def detect_on_shot(source_dir, filename, logger, path_to_load="./data/model_data
 
     print("Detected crash times:", crash_times)
 
-    plot_with_crashes(shot, crash_times, channel_name)
+    plot_with_crashes(shot, crash_times, channel_name, mode="tcn")
 
 
 
