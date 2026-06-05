@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from config.path import PATH_TO_RES_AUTOCORR
 from matplotlib.widgets import CheckButtons
 
-from .autocorr_period import sliding_autocorr_period, autocorr_period
+from .autocorr_period import sliding_autocorr_period, autocorr_period, build_period_map, robust_period_from_map, build_saw_activity_mask
 from .fft import fft_score, fft_score_with_drift
 
 from scipy.signal import butter, filtfilt
@@ -83,7 +83,7 @@ def detect_sawtooth_hybrid(
 
     if snr < min_snr:
         logger.warning(f"SNR too low: {snr:.2f} < {min_snr}")
-        return False, None, None
+        return False, None, None, None, None
 
     times, periods, scores = sliding_autocorr_period(
         signal,
@@ -96,7 +96,29 @@ def detect_sawtooth_hybrid(
     # fraction = np.sum(valid) / len(scores)
     # logger.info(f"sawtooth windows fraction = {fraction:.3f}")
 
-    estimated_period = np.median(periods[valid])
+    # estimated_period = np.median(periods[valid])
+
+    estimated_period = robust_period_from_map(periods, scores, ac_threshold=ac_threshold)
+
+    period_map = build_period_map(
+        n_samples=len(signal),
+        times=times,
+        periods=periods,
+        scores=scores,
+        ac_threshold=ac_threshold,
+        default_period=estimated_period,
+        include_boundary_periods=True,
+    )
+
+    saw_mask = build_saw_activity_mask(
+        n_samples=len(signal),
+        times=times,
+        periods=periods,
+        scores=scores,
+        dt=dt,
+        global_period=estimated_period,
+        ac_threshold=ac_threshold,
+    )
 
     logger.info(f"estimated_period = {estimated_period}")
 
@@ -106,7 +128,7 @@ def detect_sawtooth_hybrid(
 
     if not is_saw:
         logger.warning(f"No sawtooth detected.")
-        return False, None, None
+        return False, None, None, None, None
 
     logger.info(f"fft_ratio = {fft_ratio}")
 
@@ -116,4 +138,4 @@ def detect_sawtooth_hybrid(
 
     interval = (0, len(signal))
 
-    return True, interval, estimated_period
+    return True, interval, estimated_period, period_map, saw_mask

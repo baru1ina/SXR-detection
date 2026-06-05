@@ -5,16 +5,16 @@ from torch.ao.quantization.pt2e.duplicate_dq_pass import logger
 from torch.utils.data import DataLoader
 
 from src.io.loader import SHTLoader
-from src.ml.builder import build_dataset
-from src.ml.dataset import WindowDataset
-from src.ml.models.tcn_predictor import TCNPredictor
-from src.ml.models.model_io import save_model
-from src.ml.trainer import train
+from src.detection.ml.builder import build_dataset
+from src.detection.ml.dataset import WindowDataset
+from src.detection.ml.models.tcn_predictor import TCNPredictor
+from src.detection.ml.models.model_io import save_model
+from src.detection.ml.trainer import train
 from src.preprocessing.cleaning import remove_mean
 from src.preprocessing.normalization import robust_scale
 from src.preprocessing.windowing import create_windows, estimate_window_size
 from src.preprocessing.derivative import compute_derivative
-from src.ml.split import split_shots
+from src.detection.ml.split import split_shots
 from src.preprocessing.plasma_detection import detect_plasma_interval
 from src.physics.sawtooth_filter import detect_sawtooth_hybrid, detect_sawtooth_by_crashes
 
@@ -46,7 +46,7 @@ def train_on_multiple_shots(source_dir,
 
     os.makedirs(path_to_load + "/dataset", exist_ok=True)
 
-    loader = SHTLoader(source_dir)
+    loader = SHTLoader(source_dir, logger)
 
     train_files, val_files = split_shots(filenames, val_ratio=0.2)
 
@@ -102,7 +102,7 @@ def train_on_multiple_shots(source_dir,
 
                     signal = signals_plasma[:, i]
 
-                    is_saw, interval, period = detect_sawtooth_hybrid(signal, dt)
+                    is_saw, interval, period, period_map = detect_sawtooth_hybrid(signal, dt)
                     # is_saw, interval, period = detect_sawtooth_by_crashes(signal, dt)
 
                     if is_saw:
