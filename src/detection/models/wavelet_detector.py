@@ -18,7 +18,7 @@ class WaveletSawtoothDetector:
         smoothing_poly=3,
         percentile_threshold=99,
         min_period=1e-3,
-        wavelet_name="mexh",
+        wavelet_name="gaus1",
         period_map=None,
         wt_threshold=1.0
     ):

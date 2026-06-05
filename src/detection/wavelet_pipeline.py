@@ -3,7 +3,7 @@ from scipy.signal import find_peaks
 
 import numpy as np
 
-from src.detection.models.wavelet_detector import WaveletSawtoothDetector
+from src.detection.models.wavelet_core import WaveletEdgeCore
 from src.detection.utils.common import CrashCandidate, candidates_to_indices
 from src.detection.utils.pipeline_utils import (
     prepare_shot_for_detection,
@@ -12,7 +12,7 @@ from src.detection.utils.pipeline_utils import (
 )
 
 
-class WaveletDetectorAdapter:
+class WaveletEnergyDetector:
     def __init__(
         self,
         dt: float,
@@ -28,28 +28,30 @@ class WaveletDetectorAdapter:
         rescue_threshold_factor: float = 0.55,
     ):
         self.dt = float(dt)
+        self.period = float(period) if period is not None else np.nan
+        self.percentile_threshold = float(percentile_threshold)
+        self.min_period = float(min_period)
+        self.wt_threshold = float(wt_threshold)
         self.edge_margin = float(edge_margin)
-
         self.distance_factor = float(distance_factor)
         self.rescue_threshold_factor = float(rescue_threshold_factor)
 
-        self.detector = WaveletSawtoothDetector(
+        self.core = WaveletEdgeCore(
             dt=self.dt,
-            period=period,
-            period_map=None,
             crash_time_min=crash_time_min,
             crash_time_max=crash_time_max,
-            percentile_threshold=percentile_threshold,
-            min_period=min_period,
             wavelet_name=wavelet_name,
-            wt_threshold=wt_threshold,
+            enhance_energy=True,
         )
+
         self.last_energy: Optional[np.ndarray] = None
         self.last_threshold: Optional[float] = None
         self.last_candidates: list[CrashCandidate] = []
 
     def _distance_samples(self, period: Optional[float]) -> int:
         p = period if period is not None and np.isfinite(period) and period > 0 else self.period
+        if p is None or not np.isfinite(p) or p <= 0:
+            p = self.min_period
         return max(1, int(round(self.distance_factor * float(p) / self.dt)))
 
     @staticmethod
@@ -63,6 +65,12 @@ class WaveletDetectorAdapter:
             if all(abs(int(p) - int(k)) >= min_distance for k in kept):
                 kept.append(int(p))
         return np.array(sorted(kept), dtype=int)
+
+    def _threshold(self, energy: np.ndarray) -> float:
+        finite = energy[np.isfinite(energy)]
+        if len(finite) == 0:
+            return np.inf
+        return float(np.median(finite) + self.wt_threshold * np.std(finite))
 
     def detect_candidates(
         self,
@@ -80,22 +88,11 @@ class WaveletDetectorAdapter:
 
         if period is not None and np.isfinite(period) and period > 0:
             self.period = float(period)
-            self.detector.period = float(period)
 
-        # Important: do not pass the full period_map into the old detector.  Its
-        # median can be dominated by 1 ms boundary values and then the peak distance
-        # becomes too small.  The period_map can still be used later for scoring in
-        # other detectors; wavelet peak separation is intentionally global here.
-        self.detector.period_map = None
+        result = self.core.transform(x)
+        energy = np.asarray(result.energy, dtype=float)
+        threshold = self._threshold(energy)
 
-        local_time = np.arange(len(x), dtype=float) * self.dt
-        _, energy, threshold = self.detector.detect(
-            x,
-            local_time,
-            plot_flag=False,
-        )
-
-        energy = np.asarray(energy, dtype=float)
         self.last_energy = energy
         self.last_threshold = float(threshold)
 
@@ -121,11 +118,7 @@ class WaveletDetectorAdapter:
         )
 
         finite_energy = energy[np.isfinite(energy)]
-        if len(finite_energy) > 0:
-            median_energy = float(np.median(finite_energy))
-        else:
-            median_energy = 0.0
-
+        median_energy = float(np.median(finite_energy)) if len(finite_energy) else 0.0
         relaxed_threshold = median_energy + self.rescue_threshold_factor * (float(threshold) - median_energy)
         relaxed_threshold = min(float(threshold), float(relaxed_threshold))
 
@@ -148,12 +141,13 @@ class WaveletDetectorAdapter:
                     score=score,
                     direction="unknown",
                     channel=channel,
-                    method="wavelet",
+                    method="wavelet_energy",
                     meta={
                         "wavelet_energy": float(energy[p]),
                         "wavelet_threshold": float(threshold),
                         "wavelet_relaxed_threshold": float(relaxed_threshold),
                         "distance_samples": int(min_distance),
+                        "response_scale": int(result.response_scale),
                     },
                 )
             )
@@ -163,10 +157,10 @@ class WaveletDetectorAdapter:
 
         if debug:
             print(
-                f"[Wavelet] channel={channel}, primary={len(primary_peaks)}, "
+                f"[WaveletEnergy] channel={channel}, primary={len(primary_peaks)}, "
                 f"rescue={len(rescue_peaks)}, accepted={len(candidates)}, "
                 f"threshold={threshold:.4f}, relaxed={relaxed_threshold:.4f}, "
-                f"distance={min_distance}"
+                f"distance={min_distance}, response_scale={result.response_scale}"
             )
         return candidates
 
@@ -199,12 +193,12 @@ def _make_wavelet_detector(
     crash_time_max: float = 100e-6,
     percentile_threshold: float = 98.0,
     min_period: float = 0.25e-3,
-    wavelet_name: str = "mexh",
+    wavelet_name: str = "gaus1",
     edge_margin: float = 0.5e-3,
     distance_factor: float = 0.55,
     rescue_threshold_factor: float = 0.55,
-) -> WaveletDetectorAdapter:
-    return WaveletDetectorAdapter(
+) -> WaveletEnergyDetector:
+    return WaveletEnergyDetector(
         dt=dt,
         period=period,
         crash_time_min=crash_time_min,
@@ -255,7 +249,7 @@ def detect_on_shot(
     ds = max(1, int(downsample))
     dt_ds = prepared.dt * ds
 
-    def factory() -> WaveletDetectorAdapter:
+    def factory() -> WaveletEnergyDetector:
         return _make_wavelet_detector(
             dt=dt_ds,
             period=prepared.estimated_period,
