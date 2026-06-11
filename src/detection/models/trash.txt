@@ -1,0 +1,64 @@
+    def detect_old(self, signal, period=None, debug=False):
+        if len(signal) < 100:
+            return np.array([])
+
+        from scipy.signal import medfilt
+        x = medfilt(signal, kernel_size=31)
+
+        x = x - np.mean(x)
+
+        x = np.diff(x)
+
+        algo = rpt.KernelCPD(kernel="rbf").fit(x)
+        bkps = algo.predict(pen=self.penalty)
+        bkps = np.array(bkps[:-1])
+
+        print(f"[CPD] raw breakpoints: {len(bkps)}")
+
+        if len(bkps) == 0:
+            return np.array([])
+
+        if period is None and len(bkps) > 1:
+            diffs = np.diff(bkps) * self.dt
+            period = np.median(diffs)
+            print(f"[CPD] estimated period: {period:.6e} s")
+
+        if period is None:
+            return np.array([])
+
+        min_distance = int(self.min_distance_factor * period / self.dt)
+        clustered = []
+        current = [bkps[0]]
+
+        for p in bkps[1:]:
+            if p - current[-1] < min_distance:
+                current.append(p)
+            else:
+                clustered.append(current)
+                current = [p]
+
+        clustered.append(current)
+
+        candidates = [int(np.mean(c)) for c in clustered]
+
+        print(f"[CPD] clustered candidates: {len(candidates)}")
+
+        drop_window = int(self.drop_window_factor * period / self.dt)
+        std = np.std(x)
+        valid = []
+
+        # for idx in candidates:
+        #     if idx + drop_window >= len(x):
+        #         continue
+        #
+        #     drop = x[idx] - x[idx + drop_window]
+        #
+        #     if drop > self.drop_threshold_factor * std:
+        #         valid.append(idx)
+        #
+        # print(f"[CPD] valid after drop: {len(valid)}")
+
+        valid = candidates
+        reset_times = np.array(valid) * self.dt
+
+        return np.array(valid)
