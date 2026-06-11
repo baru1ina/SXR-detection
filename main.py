@@ -266,13 +266,13 @@ if __name__ == "__main__":
             mode="detect",
             # method="cpd",
             # method="cpd_features",
-            # method="wavelet_posr",
+            method="wavelet_posr",
             files_channels=test_files_channels,
             # wt_thresholds=wt_thresholds,
             multichannel=False,
             # multichannel=True,
             # channels=SXR_CHANNELS,
-            debug=False,
+            debug=True,
             # wavelet_name="mexh",
         )
 
