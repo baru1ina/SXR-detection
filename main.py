@@ -32,14 +32,12 @@ def main(
     min_channels: int = 2,
     coincidence_window: float = 0.3e-3,
     downsample: int = 10,
-    model_path: Optional[str] = None,
     plot: bool = True,
     debug: bool = False,
     penalty: float = 3.0,
     cpd_model: str = "rbf",
     wavelet_name: str = "mexh",
     cpd_score_threshold: float = 3.0,
-    probability_threshold: float = 0.5,
     posr_sigma: Optional[float] = None,
     posr_threshold: float = 6.0,
     posr_score_threshold: float = 2.5,
@@ -276,7 +274,7 @@ if __name__ == "__main__":
             multichannel=False,
             # multichannel=True,
             # channels=SXR_CHANNELS,
-            debug=True,
+            debug=False,
             # wavelet_name="mexh",
         )
 
