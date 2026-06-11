@@ -21,7 +21,7 @@ class WaveletEnergyDetector:
         crash_time_max: float = 100e-6,
         percentile_threshold: float = 98.0,
         min_period: float = 0.25e-3,
-        wavelet_name: str = "gaus1",
+        wavelet_name: str = "mexh",
         wt_threshold: float = 1.0,
         edge_margin: float = 0.5e-3,
         distance_factor: float = 0.55,
