@@ -6,6 +6,8 @@ import pywt
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import medfilt
 
+from src.visualization.plots import plot_enhance_crash_energy
+
 
 @dataclass
 class WaveletTransformResult:
@@ -23,7 +25,7 @@ class WaveletEdgeCore:
         self,
         dt: float,
         crash_time_min: float = 10e-6,
-        crash_time_max: float = 100e-6,
+        crash_time_max: float = 50e-6,
         wavelet_name: str = "gaus1",
         response_scale_seconds: Optional[float] = None,
         enhance_energy: bool = True,
@@ -45,7 +47,7 @@ class WaveletEdgeCore:
         return np.arange(scale_min, scale_max, dtype=int)
 
     @staticmethod
-    def enhance_crash_energy(energy: np.ndarray) -> np.ndarray:
+    def enhance_crash_energy(energy: np.ndarray, signal: np.ndarray) -> np.ndarray:
         energy = np.asarray(energy, dtype=float)
         if len(energy) < 9:
             return energy.copy()
@@ -55,7 +57,7 @@ class WaveletEdgeCore:
         noise_level = float(np.std(noise))
 
         energy_background = gaussian_filter1d(energy_median, sigma=1.0)
-        mask = energy_median > 3 * noise_level
+        mask = energy_median > 6 * noise_level
         energy_clean = np.where(mask, energy_median, energy_background)
 
         median_val = float(np.median(energy_clean))
@@ -65,6 +67,18 @@ class WaveletEdgeCore:
         energy_norm = energy_clean / denom
         threshold = median_val + 2 * mad
         energy_norm = np.where(energy_norm > threshold, energy_norm ** 1.5, energy_norm)
+
+        plot_enhance_crash_energy(
+            energy_median,
+            energy,
+            noise,
+            noise_level,
+            energy_norm,
+            channel_name="SXR",
+            filename="shot",
+            mode="wavelet_diagnostics",
+        )
+
         return energy_norm
 
     def _response_scale_index(self, scales: np.ndarray, coeffs: np.ndarray) -> int:
@@ -91,7 +105,7 @@ class WaveletEdgeCore:
         )
 
         raw_energy = np.sqrt(np.sum(coeffs ** 2, axis=0))
-        energy = self.enhance_crash_energy(raw_energy) if self.enhance_energy else raw_energy.copy()
+        energy = self.enhance_crash_energy(raw_energy, signal) if self.enhance_energy else raw_energy.copy()
         std = float(np.std(energy))
         if std > 1e-12:
             energy = energy / std

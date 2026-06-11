@@ -8,7 +8,8 @@ from config.path import source_dir
 fontsize=20
 labelsize=20
 
-source_dir = '../data/raw/'
+source_dir = '../data/raw/easy/'
+# source_dir="D:/Политех/магистерская/пила/входные данные/2026Saw/easy/"
 
 # filename = 'sht46358.SHT'
 # filename = 'sht42465.SHT'
@@ -104,7 +105,7 @@ for filename in os.listdir(source_dir):
     # keys = list(['SXR 80 mkm', 'SXR 50 mkm', 'SXR 15 мкм', 'SXR 127 мкм'])
     n_plots = len(keys)
 
-    fig, axes = plt.subplots(n_plots, 1, figsize=(16, 3*n_plots))
+    fig, axes = plt.subplots(n_plots, 1, figsize=(16, 3*n_plots), sharex=True)
 
     for i, key in enumerate(keys):
         axes[i].plot(res[key]['x'], res[key]['y'])

@@ -228,6 +228,12 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
                          min_freq=100, max_freq=5000,
                          window_ms=20, step_ms=5):
 
+    #TODO: важная оговорка! - окно сейчас 20 мс. Это хорошо для устойчивого спектра, но плохо для очень короткой пачки
+    # быстрых мелких колебаний. Если в конце пачка с периодом 1 мс, то в 20 мс теоретически помещается много циклов,
+    # но если сама пачка длится, например, только 3-5 мс, FFT-окно смешает её с соседним режимом. Тогда спектр будет
+    # “средней смесью”: часть энергии от старого периода, часть от быстрой пачки, часть от перехода.
+    # Надо подумать, может, стоит адаптировать ширину окна в зависимости от значения на карте периодов.
+
     window = int(window_ms * 1e-3 / dt)
     step = int(step_ms * 1e-3 / dt)
 
@@ -235,7 +241,7 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
     harmonic_ratios = []
     peakiness_list = []
 
-    harmonic_counts = []
+    # harmonic_counts = []
     decay_scores = []
 
     for i, start in enumerate(range(0, len(signal) - window, step)):
@@ -291,8 +297,8 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
 
         noise_level = np.median(spectrum_energy)
         detected = harmonic_amps > 3 * noise_level
-        num_harmonics = np.sum(detected)
-        harmonic_counts.append(num_harmonics)
+        # num_harmonics = np.sum(detected)
+        # harmonic_counts.append(num_harmonics)
 
         A1 = harmonic_amps[0] + 1e-12
         decay_errors = []
@@ -301,7 +307,7 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
             if harmonic_amps[k] == 0:
                 continue
 
-            expected = A1 / (k + 1)
+            expected = A1 / (k + 1)**2
             actual = harmonic_amps[k]
 
             decay_errors.append(abs(actual - expected) / A1)
@@ -316,10 +322,26 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
     if len(harmonic_ratios) == 0:
         return 0, 0, np.array([]), True
 
-    harmonic_ratio = np.mean(harmonic_ratios)
-    peakiness = np.mean(peakiness_list)
-    mean_decay = np.mean(decay_scores) if len(decay_scores) > 0 else np.inf
-    autocorr_mean = np.mean(scores) if len(scores) > 0 else 0
+    #TODO: тут есть проблема с усреднением. В теории у нас "идеальная" пила с одним периодом и, следовательно
+    # одним набором гармоник, а не дрейфующий по всей пиле период с разными наборами гармоник в каждом окне.
+    # Хорошо, что сделан fft по окнам (хотя есть нюансы), плохо, что в итоге, усредняя по всем окнам, мы никак не учитываем
+    # их неоднородность. Таким образом, итоговые физические пороги не имеют реального физического смысла, т.к. смешивают
+    # разные режимы в одно число. Есть идея не говорить “весь сигнал saw / not saw” в сигнале по усредненным характеристикам,
+    # а строить локальную маску. Проблема в том, что текущая реализация fft_score_with_drift() отбраковывает сигналы с
+    # наводкой (типа очень большой пик в сигнале), но пропускают шумные сигналы с периодическим фоновым шумом. Поэтому
+    # для отбраковки таких сигналов и добавлен критерий на соотношении дисперсий в области тока и предыстории.
+    # Можно ли как-то настроить именно на этом этапе? Или надо пробрасывать в конечный детектор и смотреть итоговые значения на соответствие маске?
+
+
+    # harmonic_ratio = np.mean(harmonic_ratios)
+    # peakiness = np.mean(peakiness_list)
+    # mean_decay = np.mean(decay_scores) if len(decay_scores) > 0 else np.inf
+    # autocorr_mean = np.mean(scores) if len(scores) > 0 else 0
+
+    harmonic_ratio = np.median(harmonic_ratios)
+    peakiness = np.median(peakiness_list)
+    mean_decay = np.median(decay_scores) if len(decay_scores) > 0 else np.inf
+    autocorr_mean = np.median(scores) if len(scores) > 0 else 0
 
     f0_array = np.array(window_f0_list)
 
@@ -344,11 +366,16 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
     #     mean_harmonics >= 3 and
     #     mean_decay < 3.0
 
-    classification = classify_harmonic_ratio(harmonic_ratio)
+    # classification = classify_harmonic_ratio(harmonic_ratio)
 
     # logger.warning(
     #     f"Гармоническое отношение: {harmonic_ratio:.4f} ({harmonic_ratio * 100:.2f}%) | {classification}"
     # )
+
+    #TODO: можно добавить какую-то общую оценки типа "если хороших окон >= 50% от активной области -> saw подтверждается".
+    # Тогда в статистику можно будет выводить какие-нибудь объединенные интервалы на окнах и предположение о характере
+    # колебаний именно в окне (пила/синусоида/шум и т.д.).
+
     logger.info(f"Пиковость спектра: {peakiness:.2f}")
     logger.info(f"Автокорреляция: {autocorr_mean:.3f}")
     logger.info(f"Отклонение от 1/n: {mean_decay:.3f}")
