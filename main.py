@@ -7,7 +7,6 @@ from typing import Callable, Dict, List, Optional, Tuple
 from config.path import SXR_CHANNELS, source_dir
 from src.detection.cpd_pipeline import detect_on_shot as cpd_detection
 from src.detection.posr_pipeline import detect_on_shot as posr_detection
-from src.detection.ml_pipeline import detect_on_shot as ml_detection
 from src.detection.wavelet_pipeline import detect_on_shot as wavelet_detection
 from src.io.loader import SHTLoader
 from src.logger import setup_logger
@@ -19,8 +18,6 @@ DETECTION_METHODS: Dict[str, DetectionFn] = {
     "cpd_features": cpd_detection,
     "cpd": cpd_detection,
     "wavelet_posr": posr_detection,
-    "feature_ml": ml_detection,
-    "ml": ml_detection,
 }
 
 def main(
@@ -134,20 +131,6 @@ def main(
                     sigma=posr_sigma,
                     threshold=posr_threshold,
                     score_threshold=posr_score_threshold,
-                    downsample=downsample,
-                    multichannel=multichannel,
-                    channels=channels,
-                    min_channels=min_channels,
-                    coincidence_window=coincidence_window,
-                    plot=plot,
-                    debug=debug,
-                )
-
-            elif method in {"ml", "feature_ml"}:
-                detector_fn(
-                    **common_kwargs,
-                    model_path=model_path,
-                    probability_threshold=probability_threshold,
                     downsample=downsample,
                     multichannel=multichannel,
                     channels=channels,
