@@ -215,7 +215,6 @@ if __name__ == "__main__":
             min_channels=args.min_channels,
             coincidence_window=args.coincidence_window,
             downsample=args.downsample,
-            model_path=args.model_path,
             plot=not args.no_plot,
             debug=args.debug,
             penalty=args.penalty,
@@ -224,7 +223,6 @@ if __name__ == "__main__":
             posr_sigma=args.posr_sigma,
             posr_threshold=args.posr_threshold,
             posr_score_threshold=args.posr_score_threshold,
-            probability_threshold=args.probability_threshold,
         )
     else:
         test_files_channels = [
