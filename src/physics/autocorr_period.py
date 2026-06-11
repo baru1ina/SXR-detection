@@ -92,8 +92,6 @@ def robust_period_from_map(
 
     finite = np.isfinite(periods) & np.isfinite(scores)
 
-    # Для глобального периода не используем значения, упёршиеся в границы поиска.
-    # Они часто соответствуют предвестнику/шуму или нижней границе, а не периоду sawtooth cycle.
     valid = (
         finite
         & (scores > ac_threshold)
@@ -131,12 +129,6 @@ def build_period_map(
     default_period: float = 4e-3,
     include_boundary_periods: bool = True,
 ) -> np.ndarray:
-    """Build per-sample local period map.
-
-    For local scoring we usually *do* want to keep boundary periods like 1 ms:
-    they can correspond to a local high-frequency sawtooth packet.  Boundary
-    periods are excluded only from the global period estimate.
-    """
     times = np.asarray(times, dtype=float)
     periods = np.asarray(periods, dtype=float)
     scores = np.asarray(scores, dtype=float)
@@ -184,13 +176,6 @@ def build_saw_activity_mask(
     window_ms: float = 20,
     expansion_periods: float = 1.0,
 ) -> np.ndarray:
-    """Return a mask of the time range where sawtooth oscillations are supported.
-
-    The support is based on windows with a robust non-boundary period.  Then it is
-    expanded by half the autocorr window plus one global period.  This removes
-    the initial current ramp and late post-sawtooth noise, but keeps the small
-    crashes immediately around the robust 4 ms plateau.
-    """
     times = np.asarray(times, dtype=float)
     periods = np.asarray(periods, dtype=float)
     scores = np.asarray(scores, dtype=float)
@@ -205,7 +190,8 @@ def build_saw_activity_mask(
 
     mask = np.zeros(n_samples, dtype=bool)
     if np.sum(robust) < 2:
-        # If we cannot identify a stable support, do not gate detections.
+        print("[build_saw_activity_mask] сработало ограничение на количество надёжных окон автокорреляции, "
+              "берем весь диапазон плазменного шнура")
         mask[:] = True
         return mask
 

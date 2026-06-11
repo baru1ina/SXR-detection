@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from config.path import PATH_TO_RES_AUTOCORR
 from matplotlib.widgets import CheckButtons
 
-from .autocorr_period import sliding_autocorr_period, autocorr_period, build_period_map, robust_period_from_map, build_saw_activity_mask
-from .fft import fft_score, fft_score_with_drift
+from src.physics.autocorr_period import sliding_autocorr_period, autocorr_period, build_period_map, robust_period_from_map, build_saw_activity_mask
+from src.physics.fft import fft_score, fft_score_with_drift
 
 from scipy.signal import butter, filtfilt
 
@@ -68,14 +68,6 @@ def detect_sawtooth_hybrid(
         min_fraction=0.5,
         min_snr=2):
 
-    # plt.figure(figsize=(12, 8))
-    # plt.plot(np.linspace(0, len(signal) * dt * 1000, len(signal)), signal)
-    # signal = highpass_filter(signal, dt, cutoff_freq=100)
-    # plt.plot(np.linspace(0, len(signal) * dt * 1000, len(signal)), signal)
-    # plt.grid(True)
-    # plt.tight_layout()
-    # plt.show()
-
     noise_estimate = np.std(prehist)
     signal_amplitude = np.std(signal)
     snr = signal_amplitude / (noise_estimate + 1e-8)
@@ -91,14 +83,9 @@ def detect_sawtooth_hybrid(
         dt
     )
 
-    valid = scores > ac_threshold
-
-    # fraction = np.sum(valid) / len(scores)
-    # logger.info(f"sawtooth windows fraction = {fraction:.3f}")
-
-    # estimated_period = np.median(periods[valid])
-
     estimated_period = robust_period_from_map(periods, scores, ac_threshold=ac_threshold)
+
+    logger.info(f"estimated_period = {estimated_period}")
 
     period_map = build_period_map(
         n_samples=len(signal),
@@ -120,21 +107,14 @@ def detect_sawtooth_hybrid(
         ac_threshold=ac_threshold,
     )
 
-    logger.info(f"estimated_period = {estimated_period}")
-
     fft_ratio, peakiness, f0_array, is_saw = fft_score_with_drift(
         signal, logger, dt, times, periods, scores
     )
 
     if not is_saw:
-        logger.warning(f"No sawtooth detected.")
         return False, None, None, None, None
 
     logger.info(f"fft_ratio = {fft_ratio}")
-
-    # if fft_ratio < fft_threshold:
-    #     logger.warning(f"fft_ratio is invalid.")
-    #     return False, None, None
 
     interval = (0, len(signal))
 

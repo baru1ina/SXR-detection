@@ -1,4 +1,8 @@
-source_dir="data/raw"
+# source_dir="data/raw/test"
+# source_dir="data/raw/easy"
+source_dir="data/raw/medium"
+# source_dir="data/raw/hard"
+# source_dir="data/raw/notSaw"
 
 SXR_CHANNELS = [
     "SXR 15 мкм",

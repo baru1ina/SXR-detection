@@ -59,9 +59,11 @@ def prepare_shot_for_detection(
 
     if IP_CHANNEL not in shot.channel_names:
         logger.error(f"Ip channel '{IP_CHANNEL}' not found.")
+        logger.newline()
         return None
     if channel_name not in shot.channel_names:
         logger.error(f"Channel '{channel_name}' not found.")
+        logger.newline()
         return None
 
     ip_signal = shot.signals[:, shot.channel_names.index(IP_CHANNEL)]
@@ -94,7 +96,10 @@ def prepare_shot_for_detection(
         has_saw, _, estimated_period, period_map = saw_result
         saw_mask = None
     if not has_saw:
+        from src.visualization.plots import plot_shot
+        plot_shot(shot)
         logger.warning("Sawtooth regime was not detected by the pre-filter.")
+        logger.newline()
         return None
 
     if estimated_period is None or not np.isfinite(estimated_period) or estimated_period <= 0:
@@ -168,9 +173,33 @@ def run_single_channel_detector(
 
     logger.info(f"Single-channel detections: {len(crash_times)}")
     logger.info(f"Detected reset times: {crash_times}")
+    logger.newline()
 
     if plot and len(crash_times) > 0:
         plot_with_crashes(prepared.shot, crash_times, channel_name=prepared.channel_name, mode=mode)
+
+    if debug and hasattr(detector, "last_energy") and detector.last_energy is not None:
+        try:
+            from src.visualization.plots import plot_signal_energy_period_map
+
+            ds = max(1, int(downsample))
+            time_ds = prepared.time_plasma[::ds]
+            period_map_ds = prepared.period_map[::ds] if prepared.period_map is not None else None
+            active_mask_ds = prepared.saw_mask[::ds] if prepared.saw_mask is not None else None
+            plot_signal_energy_period_map(
+                time=time_ds,
+                signal=signal_ds,
+                energy=detector.last_energy,
+                period_map=period_map_ds,
+                crash_times=crash_times,
+                active_mask=active_mask_ds,
+                channel_name=prepared.channel_name,
+                filename=prepared.filename,
+                mode=f"{mode}_diagnostics",
+            )
+        except Exception as exc:
+            logger.warning(f"Could not plot wavelet period-map diagnostics: {exc}")
+
     return crash_times
 
 
@@ -219,7 +248,9 @@ def run_multichannel_detector(
     logger.info(f"Multichannel detections: {len(crash_times)}")
     logger.info(f"Per-channel candidates: { {ch: len(c) for ch, c in voter.channel_candidates.items()} }")
     logger.info(f"Detected reset times: {crash_times}")
+    logger.newline()
 
     if plot and len(crash_times) > 0:
         plot_with_crashes(prepared.shot, crash_times, channel_name=prepared.channel_name, mode=mode)
     return crash_times
+
