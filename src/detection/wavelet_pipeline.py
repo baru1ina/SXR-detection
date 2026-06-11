@@ -28,6 +28,11 @@ class WaveletEnergyDetector:
         rescue_threshold_factor: float = 0.55,
         raw_peak_distance: float = 0.15e-3,
         use_local_period_nms: bool = True,
+        use_periodic_support_filter: bool = True,
+        periodic_min_chain_len: int = 2,
+        periodic_tolerance: float = 0.40,
+        periodic_suppression_factor: float = 0.50,
+        periodic_max_skip: int = 6,
     ):
         self.dt = float(dt)
         self.period = float(period) if period is not None else np.nan
@@ -40,6 +45,11 @@ class WaveletEnergyDetector:
 
         self.raw_peak_distance = float(raw_peak_distance)
         self.use_local_period_nms = bool(use_local_period_nms)
+        self.use_periodic_support_filter = bool(use_periodic_support_filter)
+        self.periodic_min_chain_len = max(1, int(periodic_min_chain_len))
+        self.periodic_tolerance = float(periodic_tolerance)
+        self.periodic_suppression_factor = float(periodic_suppression_factor)
+        self.periodic_max_skip = max(1, int(periodic_max_skip))
 
         self.core = WaveletEdgeCore(
             dt=self.dt,
@@ -57,6 +67,8 @@ class WaveletEnergyDetector:
         self.last_primary_peaks: np.ndarray = np.array([], dtype=int)
         self.last_rescue_peaks: np.ndarray = np.array([], dtype=int)
         self.last_all_peaks: np.ndarray = np.array([], dtype=int)
+        self.last_periodic_peaks: np.ndarray = np.array([], dtype=int)
+        self.last_periodic_component_sizes: list[int] = []
 
     def _fallback_period(self) -> float:
         if np.isfinite(self.period) and self.period > 0:
@@ -133,6 +145,85 @@ class WaveletEnergyDetector:
                 kept.append(p)
 
         return np.array(sorted(kept), dtype=int)
+
+    def _is_periodic_gap(
+        self,
+        left: int,
+        right: int,
+        *,
+        period: Optional[float],
+        period_map: Optional[np.ndarray],
+    ) -> tuple[bool, float]:
+        gap = (int(right) - int(left)) * self.dt
+        if gap <= 0:
+            return False, np.inf
+
+        left_period = self._local_period(left, period, period_map)
+        right_period = self._local_period(right, period, period_map)
+        expected = 0.5 * (left_period + right_period)
+        if not np.isfinite(expected) or expected <= 0:
+            expected = self._fallback_period()
+
+        ratio = gap / expected
+        period_steps = int(round(ratio))
+        if period_steps < 1 or period_steps > self.periodic_max_skip:
+            return False, np.inf
+
+        error = abs(ratio - period_steps) / period_steps
+        return error <= self.periodic_tolerance, error
+
+    def _filter_by_periodic_support(
+        self,
+        peaks: np.ndarray,
+        energy: np.ndarray,
+        *,
+        period: Optional[float],
+        period_map: Optional[np.ndarray],
+    ) -> np.ndarray:
+        self.last_periodic_component_sizes = []
+        if len(peaks) < self.periodic_min_chain_len:
+            return np.array([], dtype=int)
+
+        peaks = np.asarray(sorted(np.asarray(peaks, dtype=int)), dtype=int)
+        n = len(peaks)
+        adjacency: list[list[int]] = [[] for _ in range(n)]
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                ok, _ = self._is_periodic_gap(
+                    int(peaks[i]),
+                    int(peaks[j]),
+                    period=period,
+                    period_map=period_map,
+                )
+                if ok:
+                    adjacency[i].append(j)
+                    adjacency[j].append(i)
+
+        visited = np.zeros(n, dtype=bool)
+        kept: list[int] = []
+        component_sizes: list[int] = []
+
+        for start in range(n):
+            if visited[start]:
+                continue
+            stack = [start]
+            component: list[int] = []
+            visited[start] = True
+            while stack:
+                idx = stack.pop()
+                component.append(idx)
+                for nxt in adjacency[idx]:
+                    if not visited[nxt]:
+                        visited[nxt] = True
+                        stack.append(nxt)
+
+            if len(component) >= self.periodic_min_chain_len:
+                kept.extend(int(peaks[i]) for i in component)
+            component_sizes.append(len(component))
+
+        self.last_periodic_component_sizes = component_sizes
+        return np.asarray(sorted(set(kept)), dtype=int)
 
     def _threshold(self, energy: np.ndarray) -> float:
         finite = energy[np.isfinite(energy)]
@@ -221,10 +312,21 @@ class WaveletEnergyDetector:
             period=period,
             period_map=pm,
         )
+        nms_peak_count = len(peaks)
+        if self.use_periodic_support_filter:
+            peaks = self._filter_by_periodic_support(
+                peaks,
+                energy,
+                period=period,
+                period_map=pm,
+            )
+        periodic_peak_count = len(peaks)
+        periodic_peaks = np.asarray(peaks, dtype=int)
 
         self.last_primary_peaks = np.asarray(primary_peaks, dtype=int)
         self.last_rescue_peaks = np.asarray(rescue_peaks, dtype=int)
         self.last_all_peaks = np.asarray(all_peaks, dtype=int)
+        self.last_periodic_peaks = periodic_peaks
 
         candidates: list[CrashCandidate] = []
         for p in peaks:
@@ -259,11 +361,19 @@ class WaveletEnergyDetector:
             primary_periods = self._safe_slice(pm, primary_peaks) if pm is not None else []
             print(
                 f"[WaveletEnergy] channel={channel}, primary={len(primary_peaks)}, "
-                f"rescue={len(rescue_peaks)}, raw_all={len(all_peaks)}, accepted={len(candidates)}, "
+                f"rescue={len(rescue_peaks)}, raw_all={len(all_peaks)}, nms={nms_peak_count}, "
+                f"periodic={periodic_peak_count}, "
+                f"accepted={len(candidates)}, "
                 f"threshold={threshold:.4f}, relaxed={relaxed_threshold:.4f}, "
                 f"raw_distance={raw_distance}, global_distance={self._distance_samples(period)}, "
-                f"local_nms={self.use_local_period_nms}, response_scale={result.response_scale}"
+                f"local_nms={self.use_local_period_nms}, "
+                f"periodic_filter={self.use_periodic_support_filter}, response_scale={result.response_scale}"
             )
+            if self.use_periodic_support_filter:
+                print(
+                    f"[WaveletEnergy] periodic component sizes: "
+                    f"{self.last_periodic_component_sizes}"
+                )
             if selected_periods:
                 print(
                     f"[WaveletEnergy] accepted local periods (ms): "
@@ -311,6 +421,11 @@ def _make_wavelet_detector(
     rescue_threshold_factor: float = 0.55,
     raw_peak_distance: float = 0.15e-3,
     use_local_period_nms: bool = True,
+    use_periodic_support_filter: bool = True,
+    periodic_min_chain_len: int = 2,
+    periodic_tolerance: float = 0.40,
+    periodic_suppression_factor: float = 0.50,
+    periodic_max_skip: int = 6,
 ) -> WaveletEnergyDetector:
     return WaveletEnergyDetector(
         dt=dt,
@@ -326,6 +441,11 @@ def _make_wavelet_detector(
         rescue_threshold_factor=rescue_threshold_factor,
         raw_peak_distance=raw_peak_distance,
         use_local_period_nms=use_local_period_nms,
+        use_periodic_support_filter=use_periodic_support_filter,
+        periodic_min_chain_len=periodic_min_chain_len,
+        periodic_tolerance=periodic_tolerance,
+        periodic_suppression_factor=periodic_suppression_factor,
+        periodic_max_skip=periodic_max_skip,
     )
 
 
@@ -353,6 +473,11 @@ def detect_on_shot(
     wavelet_rescue_threshold_factor=0.55,
     wavelet_raw_peak_distance=0.15e-3,
     wavelet_use_local_period_nms=True,
+    wavelet_use_periodic_support_filter=True,
+    wavelet_periodic_min_chain_len=3,
+    wavelet_periodic_tolerance=0.40,
+    wavelet_periodic_suppression_factor=0.50,
+    wavelet_periodic_max_skip=6,
 ):
     prepared = prepare_shot_for_detection(
         source_dir=source_dir,
@@ -382,6 +507,11 @@ def detect_on_shot(
             rescue_threshold_factor=wavelet_rescue_threshold_factor,
             raw_peak_distance=wavelet_raw_peak_distance,
             use_local_period_nms=wavelet_use_local_period_nms,
+            use_periodic_support_filter=wavelet_use_periodic_support_filter,
+            periodic_min_chain_len=wavelet_periodic_min_chain_len,
+            periodic_tolerance=wavelet_periodic_tolerance,
+            periodic_suppression_factor=wavelet_periodic_suppression_factor,
+            periodic_max_skip=wavelet_periodic_max_skip,
         )
 
     if multichannel:

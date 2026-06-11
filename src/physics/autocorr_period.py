@@ -57,6 +57,7 @@ def sliding_autocorr_period(
 
     for start in range(0, len(signal) - window, step):
         seg = signal[start:start+window]
+        seg = seg - np.mean(seg)
 
         period, score = autocorr_period(
             seg,
@@ -174,7 +175,7 @@ def build_saw_activity_mask(
     max_period: float = 10e-3,
     boundary_eps: float = 0.10,
     window_ms: float = 20,
-    expansion_periods: float = 1.0,
+    expansion_periods: float = 3.0,
 ) -> np.ndarray:
     times = np.asarray(times, dtype=float)
     periods = np.asarray(periods, dtype=float)

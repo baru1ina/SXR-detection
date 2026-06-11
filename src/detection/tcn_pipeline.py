@@ -7,14 +7,14 @@ from src.preprocessing.normalization import robust_scale
 from src.preprocessing.windowing import create_windows
 from src.preprocessing.derivative import compute_derivative
 
-from src.ml.models.tcn_predictor import TCNPredictor
+from src.detection.ml.models.tcn_predictor import TCNPredictor
 
 from src.anomaly.score import crash_score_derivative
 from src.anomaly.smoothing import smooth_score
 from src.anomaly.interval_detection import detect_crashes
 from src.anomaly.events import group_crashes
 from src.visualization.plots import plot_with_crashes
-from src.ml.models.model_io import load_model
+from src.detection.ml.models.model_io import load_model
 
 def detect_on_shot(source_dir,
                    filename,
