@@ -89,6 +89,7 @@ def prepare_shot_for_detection(
         dt=dt,
         logger=logger,
         ch=f"{channel_name}_{filename}",
+        signal_for_snr=ref_raw[mask],
     )
     if len(saw_result) == 5:
         has_saw, _, estimated_period, period_map, saw_mask = saw_result
@@ -96,11 +97,16 @@ def prepare_shot_for_detection(
         has_saw, _, estimated_period, period_map = saw_result
         saw_mask = None
     if not has_saw:
-        from src.visualization.plots import plot_shot
-        plot_shot(shot)
-        logger.warning("Sawtooth regime was not detected by the pre-filter.")
+        logger.warning(
+            "Shot/channel rejected by the preliminary sawtooth check; "
+            "the downstream detector and event-based period refinement will not run."
+        )
         logger.newline()
         return None
+
+    # if has_saw:
+    #     print(f"[TIME_PLASMA]: {time_plasma}")
+    #     print(f"[SAW_MASK]: {saw_mask}")
 
     if estimated_period is None or not np.isfinite(estimated_period) or estimated_period <= 0:
         estimated_period = 3e-3
@@ -145,7 +151,7 @@ def run_single_channel_detector(
     mode: str = "detector",
     debug: bool = False,
 ) -> np.ndarray:
-    ds = max(1, int(downsample))
+    ds = downsample
     signal_ds = prepared.reference_signal[::ds]
     dt_ds = prepared.dt * ds
 
@@ -167,8 +173,16 @@ def run_single_channel_detector(
     )
     indices = (np.asarray(indices_ds, dtype=int) * ds).astype(int)
     indices = indices[(indices >= 0) & (indices < len(prepared.time_plasma))]
-    if prepared.saw_mask is not None and len(indices) > 0:
-        indices = indices[prepared.saw_mask[indices]]
+    effective_saw_mask = prepared.saw_mask
+    detector_period_map = getattr(detector, "last_period_map", None)
+    if detector_period_map is not None and len(detector_period_map) == len(signal_ds):
+        event_support = np.repeat(np.isfinite(detector_period_map), ds)[:len(prepared.time_plasma)]
+        if effective_saw_mask is None:
+            effective_saw_mask = event_support
+        else:
+            effective_saw_mask = np.asarray(effective_saw_mask, dtype=bool) | event_support
+    if effective_saw_mask is not None and len(indices) > 0:
+        indices = indices[effective_saw_mask[indices]]
     crash_times = prepared.time_plasma[indices]
 
     logger.info(f"Single-channel detections: {len(crash_times)}")
@@ -184,13 +198,18 @@ def run_single_channel_detector(
 
             ds = max(1, int(downsample))
             time_ds = prepared.time_plasma[::ds]
-            period_map_ds = prepared.period_map[::ds] if prepared.period_map is not None else None
-            active_mask_ds = prepared.saw_mask[::ds] if prepared.saw_mask is not None else None
+            period_map_acf_ds = prepared.period_map[::ds] if prepared.period_map is not None else None
+            period_map_ds = period_map_acf_ds
+            detector_period_map = getattr(detector, "last_period_map", None)
+            if detector_period_map is not None and len(detector_period_map) == len(signal_ds):
+                period_map_ds = detector_period_map
+            active_mask_ds = effective_saw_mask[::ds] if effective_saw_mask is not None else None
             plot_signal_energy_period_map(
                 time=time_ds,
                 signal=signal_ds,
                 energy=detector.last_energy,
                 period_map=period_map_ds,
+                period_map_acf=period_map_acf_ds,
                 crash_times=crash_times,
                 active_mask=active_mask_ds,
                 channel_name=prepared.channel_name,
@@ -241,8 +260,8 @@ def run_multichannel_detector(
     )
     indices = (np.asarray(indices_ds, dtype=int) * ds).astype(int)
     indices = indices[(indices >= 0) & (indices < len(prepared.time_plasma))]
-    if prepared.saw_mask is not None and len(indices) > 0:
-        indices = indices[prepared.saw_mask[indices]]
+    # Each per-channel detector has already applied the ACF mask combined
+    # with its own event-refined period support before channel voting.
     crash_times = prepared.time_plasma[indices]
 
     logger.info(f"Multichannel detections: {len(crash_times)}")

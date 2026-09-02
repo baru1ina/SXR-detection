@@ -192,7 +192,7 @@ def train_on_multiple_shots(source_dir,
             Y_val=Y_val
         )
 
-        logger.info(f"Data saved to {os.path.abspath(path_to_load + "/dataset/sawtooth_dataset.npz")}")
+        logger.info(f"Data saved to {os.path.abspath(path_to_load + '/dataset/sawtooth_dataset.npz')}")
 
         logger.info(f"Total train windows: {len(X_train)}")
         logger.info(f"Total validation windows: {len(X_val)}")

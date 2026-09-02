@@ -86,133 +86,6 @@ def fft_score(signal, dt, estimated_period, min_freq=0, max_freq=5000):
     return score, is_noise
 
 
-def fft_score_with_drift_0(signal, logger, dt, times, periods, scores,
-                         min_freq=100, max_freq=5000,
-                         window_ms=20, step_ms=5):
-
-    window = int(window_ms * 1e-3 / dt)
-    step = int(step_ms * 1e-3 / dt)
-
-    normalized_spectra = []
-    window_f0_list = []
-    window_scores_list = []
-    harmonic_grid = np.arange(0.5, 5.1, 0.05)
-
-    window_ratios_2_1 = []
-    window_ratios_3_1 = []
-    window_harmonic_ratios = []
-
-    logger.info(f"Параметры: окно={window_ms} мс, шаг={step_ms} мс")
-    logger.info(f"Диапазон частот: {min_freq} - {max_freq} Гц")
-
-    for i, start in enumerate(range(0, len(signal) - window, step)):
-        seg = signal[start:start + window]
-
-        local_period = periods[i] if i < len(periods) and not np.isnan(periods[i]) else None
-        local_score = scores[i] if i < len(scores) else 0
-
-        if local_period is None:
-            continue
-
-        f0 = 1.0 / local_period
-        window_f0_list.append(f0)
-        window_scores_list.append(local_score)
-
-        n = len(seg)
-
-        win = np.hanning(n)
-        seg_win = (seg - np.mean(seg)) * win
-
-        fft = np.fft.rfft(seg_win, n=4 * n)
-        freqs = np.fft.rfftfreq(4 * n, dt)
-
-        spectrum = np.abs(fft)
-
-        mask = (freqs >= min_freq) & (freqs <= max_freq)
-        if not np.any(mask):
-            continue
-
-        freqs = freqs[mask]
-        spectrum = spectrum[mask]
-
-        harmonic_numbers = freqs / f0
-
-        valid = (harmonic_numbers >= 0.5) & (harmonic_numbers <= 5)
-        if np.sum(valid) < 10:
-            continue
-
-        f_interp = interp1d(harmonic_numbers[valid],
-                            spectrum[valid],
-                            kind='linear',
-                            bounds_error=False,
-                            fill_value=0)
-
-        spectrum_norm = f_interp(harmonic_grid)
-        normalized_spectra.append(spectrum_norm)
-
-        idx_1 = np.argmin(np.abs(harmonic_grid - 1))
-        idx_2 = np.argmin(np.abs(harmonic_grid - 2))
-        idx_3 = np.argmin(np.abs(harmonic_grid - 3))
-
-        A1_win = spectrum_norm[idx_1]
-        A2_win = spectrum_norm[idx_2]
-        A3_win = spectrum_norm[idx_3]
-
-        ratio_2_1_win = A2_win / (A1_win + 1e-8)
-        ratio_3_1_win = A3_win / (A1_win + 1e-8)
-
-        window_ratios_2_1.append(ratio_2_1_win)
-        window_ratios_3_1.append(ratio_3_1_win)
-
-        harmonic_energy_win = A1_win**2 + A2_win**2 + A3_win**2
-        total_energy_win = np.sum(spectrum_norm**2)
-
-        harmonic_ratio_win = harmonic_energy_win / (total_energy_win + 1e-8)
-        window_harmonic_ratios.append(harmonic_ratio_win)
-
-    if len(normalized_spectra) == 0:
-        return 0, 0, np.array([])
-
-    avg_spectrum = np.mean(normalized_spectra, axis=0)
-
-    plot_normalized_spectrum(harmonic_grid, avg_spectrum)
-
-    idx_1 = np.argmin(np.abs(harmonic_grid - 1))
-    idx_2 = np.argmin(np.abs(harmonic_grid - 2))
-    idx_3 = np.argmin(np.abs(harmonic_grid - 3))
-    idx_4 = np.argmin(np.abs(harmonic_grid - 4))
-
-
-    A1 = avg_spectrum[idx_1]
-    A2 = avg_spectrum[idx_2]
-    A3 = avg_spectrum[idx_3]
-    A4 = avg_spectrum[idx_4]
-
-    if A1 < A2 or A1 < A3:
-        is_noise = True
-
-    ratio_2_1 = A2 / (A1 + 1e-8)
-    ratio_3_1 = A3 / (A1 + 1e-8)
-    ratio_4_1 = A4 / (A1 + 1e-8)
-
-    harmonic_energy = A1**2 + A2**2 + A3**2
-    total_energy = np.sum(avg_spectrum**2)
-    harmonic_ratio = harmonic_energy / (total_energy + 1e-8)
-
-    logger.info(f"Количество окон: {len(normalized_spectra)}")
-
-    if len(window_f0_list) > 0:
-        logger.info(f"Средняя частота: {np.mean(window_f0_list):.2f} Гц "
-                    f"(период {1000 / np.mean(window_f0_list):.2f} мс)")
-        logger.info(f"Дрейф частоты: {np.std(window_f0_list):.2f} Гц")
-
-    logger.info(f"Амплитуды: A1={A1:.2f}, A2={A2:.2f}, A3={A3:.2f}, A4={A4:.2f}")
-    logger.info(f"Отношения: A2/A1={ratio_2_1:.3f}, A3/A1={ratio_3_1:.3f}, A4/A1={ratio_4_1:.3f}")
-    logger.info(f"Гармоническое отношение: {harmonic_ratio:.4f} ({harmonic_ratio * 100:.2f}%)")
-
-    return harmonic_ratio, ratio_2_1, np.array(window_f0_list), is_noise
-
-
 def classify_harmonic_ratio(h_ratio):
     if h_ratio > 0.3:
         return "Шум"
@@ -226,7 +99,10 @@ def classify_harmonic_ratio(h_ratio):
 
 def fft_score_with_drift(signal, logger, dt, times, periods, scores,
                          min_freq=100, max_freq=5000,
-                         window_ms=20, step_ms=5):
+                         window_ms=20, step_ms=5,
+                         ac_threshold=0.3,
+                         harmonic_threshold=0.4,
+                         min_ac_fraction=0.25):
 
     #TODO: важная оговорка! - окно сейчас 20 мс. Это хорошо для устойчивого спектра, но плохо для очень короткой пачки
     # быстрых мелких колебаний. Если в конце пачка с периодом 1 мс, то в 20 мс теоретически помещается много циклов,
@@ -341,15 +217,27 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
     harmonic_ratio = np.median(harmonic_ratios)
     peakiness = np.median(peakiness_list)
     mean_decay = np.median(decay_scores) if len(decay_scores) > 0 else np.inf
-    autocorr_mean = np.median(scores) if len(scores) > 0 else 0
+    score_array = np.asarray(scores, dtype=float)
+    period_array = np.asarray(periods, dtype=float)
+    reliable_ac = (
+        np.isfinite(score_array)
+        & np.isfinite(period_array)
+        & (score_array > 0)
+    )
+    autocorr_mean = np.median(score_array[reliable_ac]) if np.any(reliable_ac) else 0
+    ac_valid_fraction = float(np.mean(reliable_ac)) if len(reliable_ac) else 0.0
 
     f0_array = np.array(window_f0_list)
 
-    if autocorr_mean < 0.6:
+    if ac_valid_fraction < min_ac_fraction:
+        is_saw = False
+    elif autocorr_mean < ac_threshold:
         is_saw = False
     elif peakiness < 8:
         is_saw = False
-    elif mean_decay > 3.0:
+    elif harmonic_ratio < harmonic_threshold:
+        is_saw = False
+    elif mean_decay > 0.5:
         is_saw = False
     else:
         is_saw = True
@@ -377,7 +265,11 @@ def fft_score_with_drift(signal, logger, dt, times, periods, scores,
     # колебаний именно в окне (пила/синусоида/шум и т.д.).
 
     logger.info(f"Пиковость спектра: {peakiness:.2f}")
-    logger.info(f"Автокорреляция: {autocorr_mean:.3f}")
+    logger.info(
+        f"Автокорреляция: {autocorr_mean:.3f}; "
+        f"доля валидных окон: {ac_valid_fraction:.3f}"
+    )
+    logger.info(f"Доля энергии первых трёх гармоник: {harmonic_ratio:.3f}")
     logger.info(f"Отклонение от 1/n: {mean_decay:.3f}")
 
     logger.info(f"has saw = {is_saw}")
