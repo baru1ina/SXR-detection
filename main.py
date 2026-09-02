@@ -1,5 +1,3 @@
-from src.detection.ml.train.tcn_pipeline import train_on_multiple_shots
-
 import argparse
 from datetime import datetime
 from typing import Callable, Dict, List, Optional, Tuple
@@ -7,7 +5,6 @@ from typing import Callable, Dict, List, Optional, Tuple
 from config.path import SXR_CHANNELS, source_dir
 from src.detection.cpd_pipeline import detect_on_shot as cpd_detection
 from src.detection.posr_pipeline import detect_on_shot as posr_detection
-from src.detection.ml_pipeline import detect_on_shot as ml_detection
 from src.detection.wavelet_pipeline import detect_on_shot as wavelet_detection
 from src.io.loader import SHTLoader
 from src.logger import setup_logger
@@ -19,8 +16,6 @@ DETECTION_METHODS: Dict[str, DetectionFn] = {
     "cpd_features": cpd_detection,
     "cpd": cpd_detection,
     "wavelet_posr": posr_detection,
-    "feature_ml": ml_detection,
-    "ml": ml_detection,
 }
 
 def main(
@@ -35,14 +30,12 @@ def main(
     min_channels: int = 2,
     coincidence_window: float = 0.3e-3,
     downsample: int = 10,
-    model_path: Optional[str] = None,
     plot: bool = True,
     debug: bool = False,
     penalty: float = 3.0,
     cpd_model: str = "rbf",
     wavelet_name: str = "mexh",
     cpd_score_threshold: float = 3.0,
-    probability_threshold: float = 0.5,
     posr_sigma: Optional[float] = None,
     posr_threshold: float = 6.0,
     posr_score_threshold: float = 2.5,
@@ -57,6 +50,8 @@ def main(
     loader = SHTLoader(source_dir, logger=logger)
 
     if mode == "train":
+        from src.detection.ml.train.tcn_pipeline import train_on_multiple_shots
+
         filenames = loader.list_files()
         logger.info(f"Found {len(filenames)} shots")
         train_on_multiple_shots(source_dir, filenames, logger, path_to_load="./data")
@@ -143,20 +138,6 @@ def main(
                     debug=debug,
                 )
 
-            elif method in {"ml", "feature_ml"}:
-                detector_fn(
-                    **common_kwargs,
-                    model_path=model_path,
-                    probability_threshold=probability_threshold,
-                    downsample=downsample,
-                    multichannel=multichannel,
-                    channels=channels,
-                    min_channels=min_channels,
-                    coincidence_window=coincidence_window,
-                    plot=plot,
-                    debug=debug,
-                )
-
             logger.newline()
 
         except Exception as e:
@@ -234,7 +215,6 @@ if __name__ == "__main__":
             min_channels=args.min_channels,
             coincidence_window=args.coincidence_window,
             downsample=args.downsample,
-            model_path=args.model_path,
             plot=not args.no_plot,
             debug=args.debug,
             penalty=args.penalty,
@@ -243,20 +223,22 @@ if __name__ == "__main__":
             posr_sigma=args.posr_sigma,
             posr_threshold=args.posr_threshold,
             posr_score_threshold=args.posr_score_threshold,
-            probability_threshold=args.probability_threshold,
         )
     else:
-        test_files_channels = [
-            # ("sht46358.SHT", "SXR 15 мкм"),
-            # ("sht39627.SHT", "SXR 15 мкм"),
-            # ("sht38296.SHT", "SXR 50 mkm"),
-            ("sht41025.SHT", "SXR 50 mkm"),
-            ("sht41105.SHT", "SXR 50 mkm"),
-            ("sht42465.SHT", "SXR 50 mkm"),
-            ("sht43043.SHT", "SXR 50 mkm"),
-            ("sht44335.SHT", "SXR 50 mkm"),
-            ("sht44428.SHT", "SXR 50 mkm"),
-        ]
+        # test_files_channels = [
+        #     # ("sht46358.SHT", "SXR 15 мкм"),
+        #     # ("sht39627.SHT", "SXR 15 мкм"),
+        #     # ("sht38296.SHT", "SXR 50 mkm"),
+        #     # ("sht41025.SHT", "SXR 50 mkm"),
+        #     # ("sht41105.SHT", "SXR 50 mkm"),
+        #     # ("sht42465.SHT", "SXR 50 mkm"),
+        #     # ("sht43043.SHT", "SXR 50 mkm"),
+        #     # ("sht44335.SHT", "SXR 80 mkm"),
+        #     # ("sht44335.SHT", "SXR 127 мкм"),
+        #     # ("sht44335.SHT", "SXR 15 мкм"),
+        #     # ("sht44335.SHT", "SXR 50 mkm"),
+        #     # ("sht44428.SHT", "SXR 50 mkm"),
+        # ]
 
         # test_files_channels = [
             # ("sht45898.SHT", "SXR 50 mkm"),
@@ -269,20 +251,26 @@ if __name__ == "__main__":
         #     ("sht43770.SHT", "SXR 50 mkm"),
         #     ("sht43838.SHT", "SXR 50 mkm"),
         # ]
-
+        #
         # test_files_channels = [
-        #     # ("sht37804.SHT", "SXR 15 мкм"),
-        #     # ("sht38596.SHT", "SXR 50 mkm"),
+        #     ("sht37804.SHT", "SXR 15 мкм"),
+        #     ("sht38596.SHT", "SXR 50 mkm"),
         #     ("sht39499.SHT", "SXR 15 мкм"),
         # ]
 
+        import os
+        test_files_channels = []
+        for file in os.listdir(source_dir):
+            test_files_channels.append((str(file), "SXR 50 mkm"))
+
         # wt_thresholds = [2.0, 2.0]
-        # wt_thresholds = [1.5, 1, 2]
+        # wt_thresholds = [1, 3]
 
         #TODO: сделать так, чтобы учитывалась периодическая структура.
         # Т.е. если на участке/в сигнале всего 1 срыв, то это не пила (!)
 
         # main(mode="detect", files_channels=test_files_channels, log_to_file=True)
+
         main(
             mode="detect",
             # method="cpd",
@@ -290,11 +278,12 @@ if __name__ == "__main__":
             # method="wavelet_posr",
             files_channels=test_files_channels,
             # wt_thresholds=wt_thresholds,
-            multichannel=False,
+            # multichannel=False,
             # multichannel=True,
             # channels=SXR_CHANNELS,
             debug=True,
-            # wavelet_name="mexh",
+            # wavelet_name="gaus1",
+            wavelet_name="mexh",
         )
 
         # main(
@@ -307,6 +296,48 @@ if __name__ == "__main__":
         #     multichannel=False,
         #     # multichannel=True,
         #     # channels=SXR_CHANNELS,
+        #     debug=True,
+        #     # wavelet_name="mexh",
+        # )
+        #
+        # main(
+        #     mode="detect",
+        #     # method="cpd",
+        #     method="cpd_features",
+        #     # method="wavelet_posr",
+        #     files_channels=test_files_channels,
+        #     # wt_thresholds=wt_thresholds,
+        #     multichannel=False,
+        #     # multichannel=True,
+        #     # channels=SXR_CHANNELS,
+        #     debug=True,
+        #     # wavelet_name="mexh",
+        # )
+        #
+        # main(
+        #     mode="detect",
+        #     # method="cpd",
+        #     # method="cpd_features",
+        #     method="wavelet_posr",
+        #     files_channels=test_files_channels,
+        #     # wt_thresholds=wt_thresholds,
+        #     multichannel=False,
+        #     # multichannel=True,
+        #     # channels=SXR_CHANNELS,
+        #     debug=True,
+        #     # wavelet_name="mexh",
+        # )
+
+        # main(
+        #     mode="detect",
+        #     # method="cpd",
+        #     # method="cpd_features",
+        #     # method="wavelet_posr",
+        #     files_channels=test_files_channels,
+        #     # wt_thresholds=wt_thresholds,
+        #     # multichannel=False,
+        #     multichannel=True,
+        #     channels=SXR_CHANNELS,
         #     debug=True,
         #     # wavelet_name="gaus1",
         # )

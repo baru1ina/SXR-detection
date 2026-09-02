@@ -60,6 +60,7 @@ def plot_signal_energy_period_map(
     signal,
     energy,
     period_map=None,
+    period_map_acf=None,
     crash_times=None,
     active_mask=None,
     channel_name="SXR",
@@ -81,20 +82,53 @@ def plot_signal_energy_period_map(
 
     axes[0].plot(time, signal, color="k", linewidth=1.0)
     axes[0].set_ylabel("signal")
-    axes[0].set_title(f"{channel_name}: signal, wavelet energy and period map")
+    axes[0].set_title(f"{channel_name}: signal, wavelet energy and period maps")
     axes[0].grid(True)
 
     axes[1].plot(time, energy, linewidth=1.0)
     axes[1].set_ylabel("wavelet energy")
     axes[1].grid(True)
 
+    has_period_map = False
+    if period_map_acf is not None:
+        pm_acf = np.asarray(period_map_acf, dtype=float)[:n]
+        axes[2].plot(
+            time[:len(pm_acf)],
+            pm_acf * 1e3,
+            color="tab:blue",
+            linestyle="--",
+            linewidth=1.2,
+            alpha=0.85,
+            label="ACF estimate",
+        )
+        has_period_map = True
+
     if period_map is not None:
         pm = np.asarray(period_map, dtype=float)[:n]
-        axes[2].plot(time, pm * 1e3, linewidth=1.0)
+        axes[2].step(
+            time[:len(pm)],
+            pm * 1e3,
+            where="post",
+            color="tab:orange",
+            linewidth=1.4,
+            label="Refined map (events + ACF fallback)",
+        )
+        has_period_map = True
+
+    if has_period_map:
         axes[2].set_ylabel("period, ms")
+        axes[2].legend(loc="best")
     else:
-        axes[2].plot(time, np.zeros_like(time), linewidth=1.0)
-        axes[2].set_ylabel("period map missing")
+        axes[2].text(
+            0.5,
+            0.5,
+            "period maps are unavailable",
+            ha="center",
+            va="center",
+            transform=axes[2].transAxes,
+        )
+        axes[2].set_ylabel("period, ms")
+
     axes[2].set_xlabel("time, s")
     axes[2].grid(True)
 

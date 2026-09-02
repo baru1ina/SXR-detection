@@ -64,14 +64,19 @@ def detect_sawtooth_hybrid(
         logger,
         ch,
         ac_threshold=0.3,
-        fft_threshold=0.1,
-        min_fraction=0.5,
-        min_snr=2):
+        fft_threshold=0.4,
+        min_fraction=0.25,
+        min_snr=2,
+        signal_for_snr=None):
 
-    noise_estimate = np.std(prehist)
-    signal_amplitude = np.std(signal)
+    snr_signal = signal if signal_for_snr is None else signal_for_snr
+    noise_estimate = np.std(np.asarray(prehist, dtype=float))
+    signal_amplitude = np.std(np.asarray(snr_signal, dtype=float))
     snr = signal_amplitude / (noise_estimate + 1e-8)
-    logger.info(f"Signal-to-noise ratio = {snr:.2f}")
+    logger.info(
+        f"Signal-to-noise ratio = {snr:.2f} "
+        f"(signal_std={signal_amplitude:.6e}, noise_std={noise_estimate:.6e})"
+    )
 
     if snr < min_snr:
         logger.warning(f"SNR too low: {snr:.2f} < {min_snr}")
@@ -94,7 +99,10 @@ def detect_sawtooth_hybrid(
         scores=scores,
         ac_threshold=ac_threshold,
         default_period=estimated_period,
-        include_boundary_periods=True,
+        include_boundary_periods=False,
+        support_radius_samples=int(round(0.5 * 20e-3 / dt)),
+        max_interp_gap_samples=int(round(1.5 * 5e-3 / dt)),
+        fill_unknown=False,
     )
 
     saw_mask = build_saw_activity_mask(
@@ -108,10 +116,19 @@ def detect_sawtooth_hybrid(
     )
 
     fft_ratio, peakiness, f0_array, is_saw = fft_score_with_drift(
-        signal, logger, dt, times, periods, scores
+        signal,
+        logger,
+        dt,
+        times,
+        periods,
+        scores,
+        ac_threshold=ac_threshold,
+        harmonic_threshold=fft_threshold,
+        min_ac_fraction=min_fraction,
     )
 
     if not is_saw:
+        logger.warning("Sawtooth regime rejected by the ACF/FFT pre-filter.")
         return False, None, None, None, None
 
     logger.info(f"fft_ratio = {fft_ratio}")

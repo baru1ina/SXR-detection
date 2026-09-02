@@ -68,16 +68,16 @@ class WaveletEdgeCore:
         threshold = median_val + 2 * mad
         energy_norm = np.where(energy_norm > threshold, energy_norm ** 1.5, energy_norm)
 
-        plot_enhance_crash_energy(
-            energy_median,
-            energy,
-            noise,
-            noise_level,
-            energy_norm,
-            channel_name="SXR",
-            filename="shot",
-            mode="wavelet_diagnostics",
-        )
+        # plot_enhance_crash_energy(
+        #     energy_median,
+        #     energy,
+        #     noise,
+        #     noise_level,
+        #     energy_norm,
+        #     channel_name="SXR",
+        #     filename="shot",
+        #     mode="wavelet_diagnostics",
+        # )
 
         return energy_norm
 

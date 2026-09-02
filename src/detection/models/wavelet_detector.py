@@ -2,6 +2,7 @@ import numpy as np
 import pywt
 from scipy.signal import find_peaks, medfilt, savgol_filter
 from scipy.ndimage import gaussian_filter1d
+from scipy.stats import kurtosis
 import matplotlib.pyplot as plt
 
 from src.anomaly.smoothing import smooth_signal_gauss, smooth_signal_savgol, smooth_signal_median
@@ -18,7 +19,7 @@ class WaveletSawtoothDetector:
         smoothing_poly=3,
         percentile_threshold=99,
         min_period=1e-3,
-        wavelet_name="gaus1",
+        wavelet_name="mexh",
         period_map=None,
         wt_threshold=1.0
     ):
@@ -102,7 +103,6 @@ class WaveletSawtoothDetector:
 
     def compute_scale_range(self):
 
-        # тут фигня, непонятно почему вообще это приближение работает:(
         scale_min = int(self.crash_time_min / (2 * self.dt))
         # scale_min = int(0.159 * self.crash_time_min / (self.dt))
         scale_max = int(self.crash_time_max / (2 * self.dt))
@@ -113,8 +113,9 @@ class WaveletSawtoothDetector:
 
         return np.arange(scale_min, scale_max)
 
-    def compute_cwt(self, signal):
+    def compute_cwt(self, signal_):
         self.scales = self.compute_scale_range()
+        signal = kurtosis(signal_)
         coeffs, freqs = pywt.cwt(
             signal,
             self.scales,
@@ -136,51 +137,6 @@ class WaveletSawtoothDetector:
             window_energy = energy[max(0, i - window):min(len(energy), i + window)]
             threshold[i] = np.percentile(window_energy, 98)
         return threshold
-
-    @staticmethod
-    def enhance_crash_energy(energy, dt, crash_duration=20e-6):
-
-        energy_median = medfilt(energy, kernel_size=5)
-        high_freq = energy - energy_median
-        noise_level = np.std(high_freq)
-        adaptive_window = np.clip(noise_level * 1000, 3, 15)
-        adaptive_window = int(adaptive_window) if adaptive_window % 2 else int(adaptive_window) + 1
-        energy_smoothed = savgol_filter(energy, adaptive_window, 2)
-        energy_enhanced = energy_smoothed ** 1.5
-
-        energy_enhanced = energy_enhanced / np.percentile(energy_enhanced, 95)
-
-        return energy_enhanced
-
-    @staticmethod
-    def enhance_crash_energy_v2(energy, dt, crash_duration=20e-6):
-        noise_estimate = np.std(np.diff(energy))
-
-        kernel_size = int(np.clip(noise_estimate * 1000, 3, 11))
-        if kernel_size % 2 == 0:
-            kernel_size += 1
-
-        energy_median = medfilt(energy, kernel_size=kernel_size)
-
-        noise = energy - energy_median
-        noise_level = np.std(noise)
-
-        sigma = 0.5
-        energy_background = gaussian_filter1d(energy_median, sigma=sigma)
-
-        mask = energy_median > 2 * noise_level
-        energy_clean = np.where(mask, energy_median, energy_background)
-
-        median_val = np.median(energy_clean)
-        mad = np.median(np.abs(energy_clean - median_val))
-        energy_norm = energy_clean / (median_val + mad)
-
-        threshold = median_val + 2 * mad
-        enhancement_factor = 1.2
-        energy_norm = np.where(energy_norm > threshold,
-                               energy_norm ** enhancement_factor,
-                               energy_norm)
-        return energy_norm
 
     @staticmethod
     def enhance_crash_energy_v3(energy, dt):
@@ -219,13 +175,8 @@ class WaveletSawtoothDetector:
         energy = self.enhance_crash_energy_v3(energy, dt = self.dt)
         energy = energy / np.std(energy)
 
-        # threshold = np.percentile(energy, self.percentile_threshold)
-        # threshold = np.mean(self.local_threshold(energy))
-        # threshold = np.median(energy) + 1.5 * np.std(energy)
         threshold = np.median(energy) + self.wt_threshold*np.std(energy)
-        # threshold = np.percentile(energy, 95) + 1.5 * (np.percentile(energy, 75) - np.percentile(energy, 25))
 
-        # min_distance = int(self.min_period / self.dt)
         if self.period_map is None:
             min_distance = int(self.period / self.dt)
         else:
