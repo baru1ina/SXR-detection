@@ -247,6 +247,71 @@ class BaseCPDDetector(ABC):
             )
         return candidates
 
+    def detect_raw_candidates(
+        self,
+        signal: np.ndarray,
+        period: Optional[float] = None,
+        period_map: Optional[np.ndarray] = None,
+        active_mask: Optional[np.ndarray] = None,
+        channel: Optional[str] = None,
+        debug: bool = False,
+    ) -> list[CrashCandidate]:
+        """Return CPD breakpoints without detector post-processing.
+
+        This path intentionally does not apply the active mask, physics-score
+        threshold, jump threshold, fallback detector, period suppression, or
+        event-count limit.  Candidate scores are calculated only as metadata for
+        diagnostics; the downstream classifier decides which points to keep.
+        """
+
+        del active_mask  # Explicitly ignored: masking would be post-processing.
+        x = np.asarray(signal, dtype=float)
+        if len(x) < 20:
+            self.last_input = None
+            self.last_raw_breakpoints = np.array([], dtype=int)
+            self.last_scored = []
+            self.last_candidates = []
+            return []
+
+        cpd_input = self.prepare_input(x, period=period)
+        self.last_input = cpd_input
+        raw = self._get_cpd_candidates(cpd_input)
+        self.last_raw_breakpoints = raw
+
+        candidates: list[CrashCandidate] = []
+        for idx in np.asarray(raw, dtype=int):
+            if not 0 <= int(idx) < len(x):
+                continue
+            local_period = self._local_period(int(idx), period, period_map)
+            score, direction, meta = score_crash_candidate(
+                x,
+                int(idx),
+                self.dt,
+                period=local_period,
+            )
+            meta = dict(meta)
+            meta["raw_cpd"] = True
+            candidates.append(
+                CrashCandidate(
+                    index=int(idx),
+                    time=int(idx) * self.dt,
+                    score=float(score),
+                    direction=direction,
+                    channel=channel,
+                    method=f"{self.method_name}_raw",
+                    meta=meta,
+                )
+            )
+
+        self.last_scored = candidates
+        self.last_candidates = candidates
+        if debug:
+            print(
+                f"[{self.method_name}:raw] breakpoints={len(raw)}, "
+                "postprocessing=disabled"
+            )
+        return candidates
+
     def detect(
         self,
         signal: np.ndarray,

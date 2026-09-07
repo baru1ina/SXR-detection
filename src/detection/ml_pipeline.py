@@ -2,6 +2,8 @@ from typing import Iterable, Optional
 
 import numpy as np
 
+from src.detection.ml.models.hybrid_proposal_detector import HybridProposalDetector
+from src.detection.models.cpd_detector import CPDDetector
 from src.detection.models.posr_detector import WaveletPOSRDetector
 from src.detection.ml.models.feature_ml_detector import FeatureMLCrashDetector
 from src.detection.utils.pipeline_utils import (
@@ -21,17 +23,31 @@ def _make_ml_detector(
     dt: float,
     period: float | None,
     model_path: str,
-    probability_threshold: float = 0.5,
+    probability_threshold: Optional[float] = None,
     proposal_sigma: Optional[float] = None,
-    proposal_threshold: float = 5.0,
-    proposal_score_threshold: float = 1.5,
+    proposal_threshold: float = 3.0,
+    proposal_score_threshold: float = 0.5,
+    use_cpd: bool = True,
+    cpd_penalty: float = 3.0,
+    cpd_model: str = "rbf",
 ):
-    proposal_detector = WaveletPOSRDetector(
+    posr_detector = WaveletPOSRDetector(
         dt=dt,
         sigma=_default_sigma(period) if proposal_sigma is None else proposal_sigma,
         threshold=proposal_threshold,
         score_threshold=proposal_score_threshold,
     )
+    if use_cpd:
+        proposal_detector = HybridProposalDetector(
+            posr_detector=posr_detector,
+            cpd_detector=CPDDetector(
+                dt=dt,
+                penalty=cpd_penalty,
+                model=cpd_model,
+            ),
+        )
+    else:
+        proposal_detector = posr_detector
     return FeatureMLCrashDetector(
         dt=dt,
         model_path=model_path,
@@ -47,10 +63,13 @@ def detect_on_shot(
     path_to_load="./data/model_data",
     channel_name="SXR 50 mkm",
     model_path: Optional[str] = None,
-    probability_threshold=0.5,
+    probability_threshold: Optional[float] = None,
     proposal_sigma: Optional[float] = None,
-    proposal_threshold=5.0,
-    proposal_score_threshold=1.5,
+    proposal_threshold=3.0,
+    proposal_score_threshold=0.5,
+    use_cpd=True,
+    cpd_penalty=3.0,
+    cpd_model="rbf",
     downsample=1,
     multichannel=False,
     channels: Optional[Iterable[str]] = None,
@@ -61,8 +80,8 @@ def detect_on_shot(
 ):
     """Feature-ML crash detector pipeline.
 
-    The ML model classifies candidates proposed by DoG/POSR.  Train and save the
-    model with FeatureMLTrainer before using this pipeline.
+    The ML model classifies POSR candidates and raw CPD breakpoints.  CPD score
+    filtering, fallback, period suppression and event limits are disabled here.
     """
     if model_path is None:
         raise ValueError("ml_pipeline requires model_path='...joblib'.")
@@ -73,6 +92,7 @@ def detect_on_shot(
         logger=logger,
         channel_name=channel_name,
         channels=channels,
+        require_sawtooth=False,
     )
     if prepared is None:
         return None
@@ -91,6 +111,9 @@ def detect_on_shot(
                 proposal_sigma=proposal_sigma,
                 proposal_threshold=proposal_threshold,
                 proposal_score_threshold=proposal_score_threshold,
+                use_cpd=use_cpd,
+                cpd_penalty=cpd_penalty,
+                cpd_model=cpd_model,
             ),
             logger=logger,
             downsample=ds,
@@ -109,6 +132,9 @@ def detect_on_shot(
         proposal_sigma=proposal_sigma,
         proposal_threshold=proposal_threshold,
         proposal_score_threshold=proposal_score_threshold,
+        use_cpd=use_cpd,
+        cpd_penalty=cpd_penalty,
+        cpd_model=cpd_model,
     )
     return run_single_channel_detector(
         prepared=prepared,

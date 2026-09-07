@@ -51,7 +51,9 @@ def plot_with_crashes(shot, crash_times, channel_name=None, mode="wavelet"):
     # plt.legend()
     plt.grid(True)
     os.makedirs(f"{PATH_TO_RES_TEMP}/{mode}", exist_ok=True)
-    plt.savefig(f"{PATH_TO_RES_TEMP}/{mode}/{channel_name}_{shot.metadata['file']}_with_crashes.png")
+    safe_channel = str(channel_name).replace("/", "_").replace("\\", "_")
+    safe_file = str(shot.metadata['file']).replace("/", "_").replace("\\", "_")
+    plt.savefig(f"{PATH_TO_RES_TEMP}/{mode}/{safe_channel}_{safe_file}_with_crashes.png")
     plt.show()
 
 

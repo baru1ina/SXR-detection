@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Sequence, Tuple
+from typing import Optional
 
 import joblib
 import numpy as np
@@ -38,127 +38,6 @@ FEATURE_NAMES = [
 ]
 
 
-def _make_model(backend: str = "auto", random_state: int = 42):
-    backend = backend.lower()
-    if backend in {"auto", "catboost"}:
-        try:
-            from catboost import CatBoostClassifier
-
-            return "catboost", CatBoostClassifier(
-                iterations=300,
-                depth=5,
-                learning_rate=0.05,
-                loss_function="Logloss",
-                verbose=False,
-                random_seed=random_state,
-                auto_class_weights="Balanced",
-            )
-        except Exception:
-            if backend == "catboost":
-                raise
-
-    if backend in {"auto", "xgboost", "xgb"}:
-        try:
-            from xgboost import XGBClassifier
-
-            return "xgboost", XGBClassifier(
-                n_estimators=300,
-                max_depth=4,
-                learning_rate=0.05,
-                subsample=0.9,
-                colsample_bytree=0.9,
-                objective="binary:logistic",
-                eval_metric="logloss",
-                random_state=random_state,
-            )
-        except Exception:
-            if backend in {"xgboost", "xgb"}:
-                raise
-
-    from sklearn.ensemble import HistGradientBoostingClassifier
-
-    return "sklearn_hgb", HistGradientBoostingClassifier(
-        max_iter=300,
-        learning_rate=0.05,
-        max_leaf_nodes=31,
-        random_state=random_state,
-        class_weight="balanced",
-    )
-
-
-class FeatureMLTrainer:
-    """Train a candidate classifier from known/pseudo crash indices."""
-
-    def __init__(self, dt: float, period: Optional[float] = None, backend: str = "auto"):
-        self.dt = float(dt)
-        self.period = period
-        self.backend_requested = backend
-        self.backend: Optional[str] = None
-        self.model = None
-
-    def build_dataset_from_indices(
-        self,
-        signal: np.ndarray,
-        crash_indices: Sequence[int],
-        negative_indices: Optional[Sequence[int]] = None,
-        n_negative_per_positive: int = 4,
-        random_state: int = 42,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        rng = np.random.default_rng(random_state)
-        n = len(signal)
-        positives = np.array(sorted(set(map(int, crash_indices))), dtype=int)
-        positives = positives[(positives > 3) & (positives < n - 3)]
-
-        if negative_indices is None:
-            if self.period is None or not np.isfinite(self.period) or self.period <= 0:
-                guard = max(10, int(0.5e-3 / self.dt))
-            else:
-                guard = max(10, int(0.35 * self.period / self.dt))
-            possible = np.arange(guard, max(guard + 1, n - guard))
-            for p in positives:
-                possible = possible[np.abs(possible - p) > guard]
-            k = min(len(possible), max(len(positives) * n_negative_per_positive, 1))
-            negatives = rng.choice(possible, size=k, replace=False) if k > 0 else np.array([], dtype=int)
-        else:
-            negatives = np.array(sorted(set(map(int, negative_indices))), dtype=int)
-
-        xs = []
-        ys = []
-        for idx in positives:
-            xs.append(extract_candidate_features(signal, int(idx), self.dt, self.period))
-            ys.append(1)
-        for idx in negatives:
-            xs.append(extract_candidate_features(signal, int(idx), self.dt, self.period))
-            ys.append(0)
-
-        if not xs:
-            raise ValueError("No training samples were generated")
-        return np.vstack(xs), np.asarray(ys, dtype=int)
-
-    def fit(self, X: np.ndarray, y: np.ndarray):
-        self.backend, self.model = _make_model(self.backend_requested)
-        self.model.fit(X, y)
-        return self
-
-    def save(self, path: str | Path):
-        if self.model is None:
-            raise RuntimeError("Call fit() before save().")
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(
-            {
-                "model": self.model,
-                "metadata": FeatureMLMetadata(
-                    backend=self.backend or self.backend_requested,
-                    dt=self.dt,
-                    period=self.period,
-                    feature_names=FEATURE_NAMES,
-                ),
-            },
-            path,
-        )
-
-
 class FeatureMLCrashDetector:
     """Candidate-based ML detector.
 
@@ -172,7 +51,7 @@ class FeatureMLCrashDetector:
         dt: float,
         model_path: str | Path,
         proposal_detector: Optional[object] = None,
-        probability_threshold: float = 0.5,
+        probability_threshold: Optional[float] = None,
         min_distance_factor: float = 0.45,
     ):
         self.dt = float(dt)
@@ -180,8 +59,12 @@ class FeatureMLCrashDetector:
         payload = joblib.load(self.model_path)
         self.model = payload["model"]
         self.metadata = payload.get("metadata")
+        self.training_metadata = payload.get("training", {})
         self.proposal_detector = proposal_detector or WaveletPOSRDetector(dt=dt)
-        self.probability_threshold = float(probability_threshold)
+        saved_threshold = self.training_metadata.get("selected_threshold", 0.5)
+        self.probability_threshold = float(
+            saved_threshold if probability_threshold is None else probability_threshold
+        )
         self.min_distance_factor = float(min_distance_factor)
         self.last_candidates: list[CrashCandidate] = []
 
@@ -195,11 +78,20 @@ class FeatureMLCrashDetector:
         self,
         signal: np.ndarray,
         period: Optional[float] = None,
+        period_map: Optional[np.ndarray] = None,
+        active_mask: Optional[np.ndarray] = None,
         channel: Optional[str] = None,
         debug: bool = False,
     ) -> list[CrashCandidate]:
         if hasattr(self.proposal_detector, "detect_candidates"):
-            proposal = self.proposal_detector.detect_candidates(signal, period=period, channel=channel, debug=debug)
+            proposal = self.proposal_detector.detect_candidates(
+                signal,
+                period=period,
+                period_map=period_map,
+                active_mask=active_mask,
+                channel=channel,
+                debug=debug,
+            )
         else:
             idx = self.proposal_detector.detect(signal, period=period, debug=debug)
             proposal = [CrashCandidate(index=int(i), time=int(i) * self.dt, channel=channel) for i in idx]
@@ -234,23 +126,44 @@ class FeatureMLCrashDetector:
             min_distance = max(1, int(0.25e-3 / self.dt))
         else:
             min_distance = max(1, int(self.min_distance_factor * period / self.dt))
-        kept_idx = suppress_by_period([c.index for c in accepted], [c.score for c in accepted], min_distance)
-        kept = set(map(int, kept_idx))
-        result = [c for c in accepted if c.index in kept]
+        best_by_index: dict[int, CrashCandidate] = {}
+        for candidate in accepted:
+            previous = best_by_index.get(candidate.index)
+            if previous is None or candidate.score > previous.score:
+                best_by_index[candidate.index] = candidate
+        unique_accepted = list(best_by_index.values())
+        kept_idx = suppress_by_period(
+            [c.index for c in unique_accepted],
+            [c.score for c in unique_accepted],
+            min_distance,
+        )
+        result = [best_by_index[int(index)] for index in kept_idx]
         result.sort(key=lambda c: c.index)
         self.last_candidates = result
 
         if debug:
-            print(f"[FeatureML] proposal={len(proposal)}, accepted={len(result)}")
+            print(
+                f"[FeatureML] proposal={len(proposal)}, accepted={len(result)}, "
+                f"probability_threshold={self.probability_threshold:.6f}"
+            )
         return result
 
     def detect(
         self,
         signal: np.ndarray,
         period: Optional[float] = None,
+        period_map: Optional[np.ndarray] = None,
+        active_mask: Optional[np.ndarray] = None,
         channel: Optional[str] = None,
         debug: bool = False,
     ) -> np.ndarray:
         return candidates_to_indices(
-            self.detect_candidates(signal, period=period, channel=channel, debug=debug)
+            self.detect_candidates(
+                signal,
+                period=period,
+                period_map=period_map,
+                active_mask=active_mask,
+                channel=channel,
+                debug=debug,
+            )
         )

@@ -48,6 +48,7 @@ def prepare_shot_for_detection(
     logger,
     channel_name: str = "SXR 50 mkm",
     channels: Optional[Iterable[str]] = None,
+    require_sawtooth: bool = True,
 ) -> Optional[PreparedShot]:
     requested_channels = list(channels or SXR_CHANNELS)
     load_channels = sorted(set(requested_channels + [channel_name, IP_CHANNEL]))
@@ -99,10 +100,15 @@ def prepare_shot_for_detection(
     if not has_saw:
         logger.warning(
             "Shot/channel rejected by the preliminary sawtooth check; "
-            "the downstream detector and event-based period refinement will not run."
+            "no period map is available."
         )
-        logger.newline()
-        return None
+        if require_sawtooth:
+            logger.newline()
+            return None
+        estimated_period = 3e-3
+        period_map = None
+        saw_mask = None
+        logger.info("Continuing without the sawtooth pre-filter for candidate generation.")
 
     # if has_saw:
     #     print(f"[TIME_PLASMA]: {time_plasma}")
@@ -189,7 +195,7 @@ def run_single_channel_detector(
     logger.info(f"Detected reset times: {crash_times}")
     logger.newline()
 
-    if plot and len(crash_times) > 0:
+    if plot:
         plot_with_crashes(prepared.shot, crash_times, channel_name=prepared.channel_name, mode=mode)
 
     if debug and hasattr(detector, "last_energy") and detector.last_energy is not None:
@@ -269,7 +275,7 @@ def run_multichannel_detector(
     logger.info(f"Detected reset times: {crash_times}")
     logger.newline()
 
-    if plot and len(crash_times) > 0:
+    if plot:
         plot_with_crashes(prepared.shot, crash_times, channel_name=prepared.channel_name, mode=mode)
     return crash_times
 
