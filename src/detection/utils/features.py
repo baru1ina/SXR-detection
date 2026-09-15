@@ -9,6 +9,26 @@ from scipy.stats import kurtosis, skew
 _EPS = 1e-12
 
 
+SINGLE_CHANNEL_FEATURE_NAMES = (
+    "physics_score",
+    "amp_score",
+    "slope_score",
+    "normal_drop",
+    "inverted_rise",
+    "seg_mean",
+    "seg_std",
+    "seg_mad",
+    "seg_peak_to_peak",
+    "min_derivative",
+    "max_derivative",
+    "std_derivative",
+    "kurtosis",
+    "skew",
+    "post_minus_pre_mean",
+    "post_std_over_pre_std",
+)
+
+
 def make_odd(value: int, minimum: int = 3) -> int:
     value = max(int(value), minimum)
     return value if value % 2 else value + 1

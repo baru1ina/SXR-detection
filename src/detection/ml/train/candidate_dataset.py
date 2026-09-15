@@ -8,6 +8,8 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 
+from config.path import SXR_CHANNELS
+from src.detection.ml.multisxr_proposals import collect_multisxr_candidates
 from src.detection.ml.train.pseudo_labels import (
     PseudoLabelDataset,
     PseudoLabeledShot,
@@ -15,7 +17,7 @@ from src.detection.ml.train.pseudo_labels import (
 )
 
 
-CANDIDATE_DATASET_SCHEMA_VERSION = 1
+CANDIDATE_DATASET_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -29,6 +31,8 @@ class FeatureMLCandidateConfig:
     cpd_model: str = "rbf"
     positive_tolerance_s: float = 0.3e-3
     negative_exclusion_s: float = 0.6e-3
+    proposal_channels: tuple[str, ...] = tuple(SXR_CHANNELS)
+    coincidence_window_s: float = 0.15e-3
 
     def __post_init__(self):
         if self.downsample < 1:
@@ -37,6 +41,12 @@ class FeatureMLCandidateConfig:
             raise ValueError("positive_tolerance_s must be non-negative")
         if self.negative_exclusion_s <= self.positive_tolerance_s:
             raise ValueError("negative_exclusion_s must exceed positive_tolerance_s")
+        proposal_channels = tuple(dict.fromkeys(self.proposal_channels))
+        if not proposal_channels:
+            raise ValueError("proposal_channels must not be empty")
+        object.__setattr__(self, "proposal_channels", proposal_channels)
+        if not np.isfinite(self.coincidence_window_s) or self.coincidence_window_s <= 0:
+            raise ValueError("coincidence_window_s must be positive and finite")
 
 
 @dataclass(frozen=True)
@@ -181,18 +191,15 @@ def label_candidates(
     """Generate POSR + raw CPD proposals and label them by teacher distance."""
 
     downsample = config.downsample
-    signal = np.asarray(prepared.reference_signal)[::downsample]
-    period_map = None if prepared.period_map is None else np.asarray(prepared.period_map)[::downsample]
-    active_mask = None if prepared.saw_mask is None else np.asarray(prepared.saw_mask)[::downsample]
     period = float(prepared.estimated_period)
-
-    detector = detector_factory(float(prepared.dt) * downsample, period, config)
-    proposals = detector.detect_candidates(
-        signal,
-        period=period,
-        period_map=period_map,
-        active_mask=active_mask,
-        channel=teacher.channel,
+    proposals = collect_multisxr_candidates(
+        prepared,
+        downsample=downsample,
+        channels=config.proposal_channels,
+        coincidence_window_s=config.coincidence_window_s,
+        detector_factory=lambda dt, estimated_period: detector_factory(
+            dt, estimated_period, config
+        ),
         debug=debug,
     )
 
@@ -306,7 +313,7 @@ def _build_split(
                 filename=teacher.relative_path,
                 logger=logger,
                 channel_name=teacher.channel,
-                channels=[teacher.channel],
+                channels=list(dict.fromkeys(config.proposal_channels + (teacher.channel,))),
                 require_sawtooth=False,
             )
             if prepared is None:
@@ -403,13 +410,15 @@ def main() -> None:
         description="Build labeled POSR + raw CPD candidates from wavelet pseudo-labels"
     )
     parser.add_argument("--pseudo-labels", default="data/dataset/wavelet_pseudo_labels.json")
-    parser.add_argument("--output", default="data/dataset/feature_ml_candidates.json")
+    parser.add_argument("--output", default="data/dataset/feature_ml_candidates_v3.json")
     parser.add_argument("--downsample", type=int, default=None)
     parser.add_argument("--threshold", type=float, default=3.0)
     parser.add_argument("--score-threshold", type=float, default=0.5)
     parser.add_argument("--no-cpd", action="store_true")
     parser.add_argument("--cpd-penalty", type=float, default=3.0)
     parser.add_argument("--cpd-model", default="rbf")
+    parser.add_argument("--proposal-channels", nargs="+", default=SXR_CHANNELS)
+    parser.add_argument("--coincidence-window-ms", type=float, default=0.15)
     parser.add_argument("--positive-tolerance-ms", type=float, default=0.3)
     parser.add_argument("--negative-exclusion-ms", type=float, default=0.6)
     parser.add_argument("--debug", action="store_true")
@@ -429,6 +438,8 @@ def main() -> None:
         cpd_model=args.cpd_model,
         positive_tolerance_s=args.positive_tolerance_ms * 1e-3,
         negative_exclusion_s=args.negative_exclusion_ms * 1e-3,
+        proposal_channels=tuple(args.proposal_channels),
+        coincidence_window_s=args.coincidence_window_ms * 1e-3,
     )
     dataset = build_candidate_dataset(
         pseudo_labels,

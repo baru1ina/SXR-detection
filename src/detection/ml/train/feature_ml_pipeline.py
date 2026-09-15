@@ -31,10 +31,10 @@ def train_feature_ml_from_pseudo_labels(
     logger,
     pseudo_labels_path: str | Path = "data/dataset/wavelet_pseudo_labels.json",
     source_dir: Optional[str | Path] = None,
-    candidates_output: str | Path = "data/dataset/feature_ml_candidates.json",
-    features_output: str | Path = "data/dataset/feature_candidates.npz",
-    model_output: str | Path = "data/model_data/feature_ml.joblib",
-    metrics_output: str | Path = "data/model_data/feature_ml_metrics.json",
+    candidates_output: str | Path = "data/dataset/feature_ml_candidates_v3.json",
+    features_output: str | Path = "data/dataset/feature_candidates_v3.npz",
+    model_output: str | Path = "data/model_data/feature_ml_v3.joblib",
+    metrics_output: str | Path = "data/model_data/feature_ml_metrics_v3.json",
     backend: str = "sklearn_hgb",
     random_state: int = 42,
     downsample: Optional[int] = None,
@@ -45,6 +45,7 @@ def train_feature_ml_from_pseudo_labels(
     cpd_model: str = "rbf",
     positive_tolerance_s: float = 0.3e-3,
     negative_exclusion_s: float = 0.6e-3,
+    proposal_coincidence_window_s: float = 0.15e-3,
     debug: bool = False,
 ) -> FeatureMLTrainingArtifacts:
     pseudo_labels = load_pseudo_labels(pseudo_labels_path)
@@ -61,6 +62,7 @@ def train_feature_ml_from_pseudo_labels(
         cpd_model=cpd_model,
         positive_tolerance_s=positive_tolerance_s,
         negative_exclusion_s=negative_exclusion_s,
+        coincidence_window_s=proposal_coincidence_window_s,
     )
     dataset = build_candidate_dataset(
         pseudo_labels,

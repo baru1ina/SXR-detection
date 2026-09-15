@@ -3,7 +3,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
-from typing import Callable, Optional, Sequence, Tuple
+from typing import Callable, Optional
 
 import joblib
 import numpy as np
@@ -17,17 +17,15 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from config.channels import MULTICHANNEL_FEATURE_PROFILE
+from src.detection.ml.multichannel_features import MultichannelFeatureBuilder
 from src.detection.ml.train.candidate_dataset import (
     CandidateDataset,
     CandidateShot,
     LabeledCandidate,
     load_candidate_dataset,
 )
-from src.detection.ml.models.feature_ml_detector import (
-    FEATURE_NAMES,
-    FeatureMLMetadata,
-)
-from src.detection.utils.features import extract_candidate_features
+from src.detection.ml.models.feature_ml_detector import MODEL_SCHEMA_VERSION
 
 
 @dataclass(frozen=True)
@@ -44,7 +42,6 @@ class FeatureRows:
 
 
 PrepareShotFn = Callable[..., object]
-FeatureExtractor = Callable[[np.ndarray, int, float, Optional[float]], np.ndarray]
 
 
 def _make_model(backend: str = "auto", random_state: int = 42, catboost=None):
@@ -95,90 +92,6 @@ def _make_model(backend: str = "auto", random_state: int = 42, catboost=None):
     )
 
 
-class FeatureMLTrainer:
-    """Train a candidate classifier from known/pseudo crash indices."""
-
-    def __init__(self, dt: float, period: Optional[float] = None, backend: str = "auto"):
-        self.dt = float(dt)
-        self.period = period
-        self.backend_requested = backend
-        self.backend: Optional[str] = None
-        self.model = None
-
-    def build_dataset_from_indices(
-        self,
-        signal: np.ndarray,
-        crash_indices: Sequence[int],
-        negative_indices: Optional[Sequence[int]] = None,
-        n_negative_per_positive: int = 4,
-        random_state: int = 42,
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        rng = np.random.default_rng(random_state)
-        n = len(signal)
-        positives = np.array(sorted(set(map(int, crash_indices))), dtype=int)
-        positives = positives[(positives > 3) & (positives < n - 3)]
-
-        if negative_indices is None:
-            if self.period is None or not np.isfinite(self.period) or self.period <= 0:
-                guard = max(10, int(0.5e-3 / self.dt))
-            else:
-                guard = max(10, int(0.35 * self.period / self.dt))
-            possible = np.arange(guard, max(guard + 1, n - guard))
-            for positive in positives:
-                possible = possible[np.abs(possible - positive) > guard]
-            count = min(
-                len(possible),
-                max(len(positives) * n_negative_per_positive, 1),
-            )
-            negatives = (
-                rng.choice(possible, size=count, replace=False)
-                if count > 0
-                else np.array([], dtype=int)
-            )
-        else:
-            negatives = np.array(sorted(set(map(int, negative_indices))), dtype=int)
-
-        features = []
-        labels = []
-        for index in positives:
-            features.append(
-                extract_candidate_features(signal, int(index), self.dt, self.period)
-            )
-            labels.append(1)
-        for index in negatives:
-            features.append(
-                extract_candidate_features(signal, int(index), self.dt, self.period)
-            )
-            labels.append(0)
-
-        if not features:
-            raise ValueError("No training samples were generated")
-        return np.vstack(features), np.asarray(labels, dtype=int)
-
-    def fit(self, X: np.ndarray, y: np.ndarray):
-        self.backend, self.model = _make_model(self.backend_requested)
-        self.model.fit(X, y)
-        return self
-
-    def save(self, path: str | Path):
-        if self.model is None:
-            raise RuntimeError("Call fit() before save().")
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(
-            {
-                "model": self.model,
-                "metadata": FeatureMLMetadata(
-                    backend=self.backend or self.backend_requested,
-                    dt=self.dt,
-                    period=self.period,
-                    feature_names=FEATURE_NAMES,
-                ),
-            },
-            path,
-        )
-
-
 def _default_prepare_shot(**kwargs):
     from src.detection.utils.pipeline_utils import prepare_shot_for_detection
 
@@ -197,8 +110,9 @@ def extract_feature_rows(
     downsample: int,
     logger,
     prepare_shot: PrepareShotFn = _default_prepare_shot,
-    feature_extractor: FeatureExtractor = extract_candidate_features,
+    feature_builder: Optional[MultichannelFeatureBuilder] = None,
 ) -> FeatureRows:
+    feature_builder = feature_builder or MultichannelFeatureBuilder()
     features: list[np.ndarray] = []
     labels: list[int] = []
     shot_ids: list[str] = []
@@ -229,13 +143,13 @@ def extract_feature_rows(
             channel_name=shot.channel,
             channels=[shot.channel],
             require_sawtooth=False,
+            feature_channel_profile=feature_builder.profile,
         )
         if prepared is None:
             raise RuntimeError(f"Could not prepare {shot.relative_path} for feature extraction")
 
-        signal = np.asarray(prepared.reference_signal, dtype=float)[::downsample]
-        effective_dt = float(prepared.dt) * downsample
         period = float(shot.estimated_period_s or prepared.estimated_period)
+        standardized = feature_builder.prepare_standardized_channels(prepared)
 
         for candidate in shot.candidates:
             if candidate.plasma_index % downsample != 0:
@@ -243,19 +157,33 @@ def extract_feature_rows(
                     f"Candidate index {candidate.plasma_index} in {shot.shot_id} "
                     f"is not aligned to downsample={downsample}"
                 )
-            candidate_index = candidate.plasma_index // downsample
-            if not 0 <= candidate_index < len(signal):
+            if not 0 <= candidate.plasma_index < len(prepared.time_plasma):
                 raise IndexError(
-                    f"Candidate index {candidate_index} is outside {shot.shot_id} signal"
+                    f"Candidate index {candidate.plasma_index} is outside "
+                    f"{shot.shot_id} signal"
                 )
+            if not np.isclose(
+                float(prepared.time_plasma[candidate.plasma_index]),
+                float(candidate.time_s),
+                rtol=0,
+                atol=max(float(prepared.dt) / 2, 1e-12),
+            ):
+                raise ValueError(f"Candidate time does not match plasma index in {shot.shot_id}")
 
             vector = np.asarray(
-                feature_extractor(signal, candidate_index, effective_dt, period),
+                feature_builder.build(
+                    prepared,
+                    candidate.plasma_index,
+                    period=period,
+                    standardized_channels=standardized,
+                    proposal_evidence=candidate.metadata,
+                ),
                 dtype=float,
             )
-            if vector.shape != (len(FEATURE_NAMES),):
+            if vector.shape != (feature_builder.schema.n_features,):
                 raise ValueError(
-                    f"Expected {len(FEATURE_NAMES)} features, got {vector.shape} "
+                    f"Expected {feature_builder.schema.n_features} features, "
+                    f"got {vector.shape} "
                     f"for {shot.shot_id}"
                 )
 
@@ -426,7 +354,13 @@ def save_feature_dataset(
     train_rows: FeatureRows,
     validation_rows: FeatureRows,
     output_path: str | Path,
+    feature_builder: Optional[MultichannelFeatureBuilder] = None,
 ) -> Path:
+    feature_builder = feature_builder or MultichannelFeatureBuilder()
+    if train_rows.X.shape[1] != feature_builder.schema.n_features:
+        raise ValueError("Training matrix does not match the feature schema")
+    if validation_rows.X.shape[1] != feature_builder.schema.n_features:
+        raise ValueError("Validation matrix does not match the feature schema")
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
@@ -441,7 +375,9 @@ def save_feature_dataset(
         validation_shot_ids=validation_rows.shot_ids,
         validation_categories=validation_rows.categories,
         validation_candidate_times_s=validation_rows.candidate_times_s,
-        feature_names=np.asarray(FEATURE_NAMES),
+        feature_names=np.asarray(feature_builder.schema.feature_names),
+        feature_schema_version=np.asarray(feature_builder.schema.schema_version),
+        feature_profile=np.asarray(feature_builder.schema.profile_name),
     )
     return output
 
@@ -452,24 +388,25 @@ def train_feature_classifier(
     backend: str = "sklearn_hgb",
     random_state: int = 42,
     prepare_shot: PrepareShotFn = _default_prepare_shot,
-    feature_extractor: FeatureExtractor = extract_candidate_features,
+    feature_builder: Optional[MultichannelFeatureBuilder] = None,
 ):
+    feature_builder = feature_builder or MultichannelFeatureBuilder()
     downsample = dataset.config.downsample
     train_rows = extract_feature_rows(
         dataset.train,
         dataset.source_dir,
         downsample,
         logger,
-        prepare_shot,
-        feature_extractor,
+        prepare_shot=prepare_shot,
+        feature_builder=feature_builder,
     )
     validation_rows = extract_feature_rows(
         dataset.validation,
         dataset.source_dir,
         downsample,
         logger,
-        prepare_shot,
-        feature_extractor,
+        prepare_shot=prepare_shot,
+        feature_builder=feature_builder,
     )
 
     if len(np.unique(train_rows.y)) != 2:
@@ -484,10 +421,11 @@ def train_feature_classifier(
     selected_threshold = select_f1_threshold(validation_rows, validation_probability)
 
     report = {
-        "schema_version": 1,
+        "schema_version": MODEL_SCHEMA_VERSION,
         "backend": backend_name,
         "random_state": random_state,
-        "feature_names": FEATURE_NAMES,
+        "feature_names": list(feature_builder.schema.feature_names),
+        "feature_schema": feature_builder.schema.to_dict(),
         "candidate_config": asdict(dataset.config),
         "selected_threshold": selected_threshold,
         "metrics_at_0_5": {
@@ -511,22 +449,40 @@ def train_feature_classifier(
 
 
 def save_model(model, report: dict, output_path: str | Path, effective_dt: float) -> Path:
+    feature_builder = MultichannelFeatureBuilder()
+    if report.get("feature_schema") != feature_builder.schema.to_dict():
+        raise ValueError("Report feature schema does not match the current builder")
+    if report.get("schema_version") != MODEL_SCHEMA_VERSION:
+        raise ValueError("Report is not a feature-ML schema v3 report")
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(
         {
+            "schema_version": MODEL_SCHEMA_VERSION,
             "model": model,
-            "metadata": FeatureMLMetadata(
-                backend=report["backend"],
-                dt=effective_dt,
-                period=None,
-                feature_names=FEATURE_NAMES,
-            ),
-            "training": {
-                "selected_threshold": report["selected_threshold"],
-                "candidate_config": report["candidate_config"],
-                "random_state": report["random_state"],
+            "feature_schema": report["feature_schema"],
+            "diagnostic_channels": [
+                asdict(channel) for channel in MULTICHANNEL_FEATURE_PROFILE.channels
+            ],
+            "downsample": int(report["candidate_config"]["downsample"]),
+            "effective_dt_s": float(effective_dt),
+            "proposal_config": {
+                "threshold": report["candidate_config"]["threshold"],
+                "score_threshold": report["candidate_config"]["score_threshold"],
+                "min_distance_factor": report["candidate_config"]["min_distance_factor"],
+                "use_cpd": report["candidate_config"]["use_cpd"],
+                "cpd_penalty": report["candidate_config"]["cpd_penalty"],
+                "cpd_model": report["candidate_config"]["cpd_model"],
+                "proposal_channels": list(
+                    report["candidate_config"]["proposal_channels"]
+                ),
+                "coincidence_window_s": report["candidate_config"][
+                    "coincidence_window_s"
+                ],
             },
+            "selected_threshold": float(report["selected_threshold"]),
+            "backend": report["backend"],
+            "random_state": report["random_state"],
         },
         output,
     )
@@ -545,10 +501,10 @@ def save_report(report: dict, output_path: str | Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the feature-ML candidate classifier")
-    parser.add_argument("--candidates", default="data/dataset/feature_ml_candidates.json")
-    parser.add_argument("--model-output", default="data/model_data/feature_ml.joblib")
-    parser.add_argument("--features-output", default="data/dataset/feature_candidates.npz")
-    parser.add_argument("--report-output", default="data/model_data/feature_ml_metrics.json")
+    parser.add_argument("--candidates", default="data/dataset/feature_ml_candidates_v3.json")
+    parser.add_argument("--model-output", default="data/model_data/feature_ml_v3.joblib")
+    parser.add_argument("--features-output", default="data/dataset/feature_candidates_v3.npz")
+    parser.add_argument("--report-output", default="data/model_data/feature_ml_metrics_v3.json")
     parser.add_argument("--backend", default="sklearn_hgb")
     parser.add_argument("--random-state", type=int, default=42)
     args = parser.parse_args()

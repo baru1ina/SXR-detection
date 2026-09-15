@@ -3,10 +3,16 @@ from typing import Dict, Iterable, Optional
 
 import numpy as np
 
+from config.channels import DiagnosticChannelProfile
 from config.path import IP_CHANNEL, SXR_CHANNELS
 from src.detection.utils.multichannel import MultiChannelVotingDetector
 from src.io.loader import SHTLoader
 from src.physics.sawtooth_filter import detect_sawtooth_hybrid
+from src.preprocessing.alignment import (
+    AlignedSignalSet,
+    ChannelAlignmentSpec,
+    align_multirate_shot,
+)
 from src.preprocessing.cleaning import remove_mean
 from src.preprocessing.normalization import robust_scale
 from src.preprocessing.plasma_detection import detect_plasma_interval
@@ -26,6 +32,8 @@ class PreparedShot:
     mask: np.ndarray
     period_map: Optional[np.ndarray] = None
     saw_mask: Optional[np.ndarray] = None
+    aligned_signals: Optional[AlignedSignalSet] = None
+    feature_profile: Optional[str] = None
 
 
 def preprocess_sxr_signal(signal: np.ndarray) -> np.ndarray:
@@ -49,12 +57,23 @@ def prepare_shot_for_detection(
     channel_name: str = "SXR 50 mkm",
     channels: Optional[Iterable[str]] = None,
     require_sawtooth: bool = True,
+    feature_channel_profile: Optional[DiagnosticChannelProfile] = None,
 ) -> Optional[PreparedShot]:
     requested_channels = list(channels or SXR_CHANNELS)
     load_channels = sorted(set(requested_channels + [channel_name, IP_CHANNEL]))
 
     loader = SHTLoader(source_dir, logger=logger)
-    shot = loader.load_shot(filename, channels=load_channels)
+    multirate_shot = None
+    if feature_channel_profile is None:
+        shot = loader.load_shot(filename, channels=load_channels)
+    else:
+        feature_channels = feature_channel_profile.channel_names
+        all_channels = list(dict.fromkeys(load_channels + feature_channels))
+        multirate_shot = loader.load_multirate_shot(
+            filename,
+            channels=all_channels,
+        )
+        shot = loader.common_grid_view(multirate_shot, channels=load_channels)
     logger.info(f"Разряд: {filename}, канал: {channel_name}")
     logger.info(f"Загруженные каналы: {shot.channel_names}")
 
@@ -133,6 +152,47 @@ def prepare_shot_for_detection(
     if channel_name not in channel_signals:
         channel_signals[channel_name] = reference_signal
 
+    aligned_signals = None
+    if feature_channel_profile is not None:
+        alignment_specs = {}
+        profile_by_name = feature_channel_profile.channels_by_name
+        for name in feature_channel_profile.channel_names:
+            diagnostic = profile_by_name[name]
+            source_dt = None
+            if multirate_shot.has_channel(name):
+                source_dt = multirate_shot.get_channel(name).dt
+            max_gap_s = (
+                None
+                if source_dt is None
+                else diagnostic.max_gap_factor * source_dt
+            )
+            alignment_specs[name] = ChannelAlignmentSpec(
+                method=diagnostic.alignment_method,
+                max_gap_s=max_gap_s,
+            )
+
+        aligned_signals = align_multirate_shot(
+            multirate_shot,
+            target_time=time_plasma,
+            channel_names=feature_channel_profile.channel_names,
+            specs=alignment_specs,
+        )
+        direct_channels = [
+            name
+            for name in aligned_signals.available_channel_names
+            if not aligned_signals.get_channel(name).resampled
+        ]
+        resampled_channels = [
+            f"{name}={aligned_signals.get_channel(name).coverage:.1%}"
+            for name in aligned_signals.available_channel_names
+            if aligned_signals.get_channel(name).resampled
+        ]
+        logger.info(
+            f"ML diagnostic profile: {feature_channel_profile.name}; "
+            f"direct={direct_channels}; resampled={resampled_channels}; "
+            f"missing={aligned_signals.missing_channel_names}"
+        )
+
     return PreparedShot(
         shot=shot,
         filename=filename,
@@ -145,6 +205,10 @@ def prepare_shot_for_detection(
         mask=mask,
         period_map=period_map,
         saw_mask=saw_mask,
+        aligned_signals=aligned_signals,
+        feature_profile=(
+            None if feature_channel_profile is None else feature_channel_profile.name
+        ),
     )
 
 
@@ -278,4 +342,3 @@ def run_multichannel_detector(
     if plot:
         plot_with_crashes(prepared.shot, crash_times, channel_name=prepared.channel_name, mode=mode)
     return crash_times
-

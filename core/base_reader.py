@@ -8,14 +8,27 @@ from config.path import source_dir
 fontsize=20
 labelsize=20
 
-source_dir = '../data/raw/easy/'
-# source_dir="D:/Политех/магистерская/пила/входные данные/2026Saw/easy/"
+# source_dir = '../data/raw/easy/'
+# # source_dir="D:/Политех/магистерская/пила/входные данные/2026Saw/easy/"
+#
+# # filename = 'sht46358.SHT'
+# # filename = 'sht42465.SHT'
+# # filename = 'sht37622.SHT'
+# filename = ('/sht39627.SHT')
+# # filename = '/sht46358.SHT'
 
-# filename = 'sht46358.SHT'
-# filename = 'sht42465.SHT'
-# filename = 'sht37622.SHT'
-filename = ('/sht39627.SHT')
-# filename = '/sht46358.SHT'
+filename = ('/home/baru1ina/Dev/SXR-detection/data/raw/easy/sht46697.SHT')
+
+res = shtRipper.ripper.read(filename)
+
+for key_ in list(res.keys()):
+    plt.figure()
+    plt.plot(res[key_]['x'], res[key_]['y'])
+    plt.grid()
+    plt.title(str(key_), fontsize=fontsize)
+
+
+plt.show()
 
 # res = shtRipper.ripper.read(source_dir + filename, ['SXR', 'Ip внутр'])
 # res2 = shtRipper.ripper.read(source_dir + '/sht39627.SHT', ['SXR', 'Ip внутр'])
@@ -119,3 +132,7 @@ for filename in os.listdir(source_dir):
     # plt.savefig(f'../data/plots/{filename}.png')
     plt.show()
 
+#   .venv/bin/python main.py --mode train --method feature_ml
+#   .venv/bin/python main.py --mode detect --method feature_ml \
+#     --model_path data/model_data/feature_ml_v3.joblib \
+#     --source_dir data/raw --file test/sht42465.SHT --downsample 10

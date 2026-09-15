@@ -2,15 +2,14 @@ from typing import Iterable, Optional
 
 import numpy as np
 
+from config.channels import MULTICHANNEL_FEATURE_PROFILE
+from config.path import SXR_CHANNELS
+from src.detection.ml.models.feature_ml_detector import FeatureMLCrashDetector
 from src.detection.ml.models.hybrid_proposal_detector import HybridProposalDetector
 from src.detection.models.cpd_detector import CPDDetector
 from src.detection.models.posr_detector import WaveletPOSRDetector
-from src.detection.ml.models.feature_ml_detector import FeatureMLCrashDetector
-from src.detection.utils.pipeline_utils import (
-    prepare_shot_for_detection,
-    run_multichannel_detector,
-    run_single_channel_detector,
-)
+from src.detection.utils.pipeline_utils import prepare_shot_for_detection
+from src.visualization.plots import plot_with_crashes
 
 
 def _default_sigma(period: float | None) -> float:
@@ -21,6 +20,7 @@ def _default_sigma(period: float | None) -> float:
 
 def _make_ml_detector(
     dt: float,
+    downsample: int,
     period: float | None,
     model_path: str,
     probability_threshold: Optional[float] = None,
@@ -30,28 +30,45 @@ def _make_ml_detector(
     use_cpd: bool = True,
     cpd_penalty: float = 3.0,
     cpd_model: str = "rbf",
+    proposal_channels: Optional[Iterable[str]] = None,
+    coincidence_window_s: float = 0.15e-3,
 ):
-    posr_detector = WaveletPOSRDetector(
-        dt=dt,
-        sigma=_default_sigma(period) if proposal_sigma is None else proposal_sigma,
-        threshold=proposal_threshold,
-        score_threshold=proposal_score_threshold,
-    )
-    if use_cpd:
-        proposal_detector = HybridProposalDetector(
-            posr_detector=posr_detector,
-            cpd_detector=CPDDetector(
-                dt=dt,
-                penalty=cpd_penalty,
-                model=cpd_model,
-            ),
+    if proposal_sigma is not None:
+        raise ValueError(
+            "A custom proposal sigma is not supported by the trained v3 model; "
+            "use the saved period-dependent POSR scale"
         )
-    else:
-        proposal_detector = posr_detector
+    def detector_factory(_dt, _period):
+        posr_detector = WaveletPOSRDetector(
+            dt=dt,
+            sigma=_default_sigma(period),
+            threshold=proposal_threshold,
+            score_threshold=proposal_score_threshold,
+        )
+        if not use_cpd:
+            return posr_detector
+        return HybridProposalDetector(
+            posr_detector=posr_detector,
+            cpd_detector=CPDDetector(dt=dt, penalty=cpd_penalty, model=cpd_model),
+        )
+
+    proposal_channels = list(dict.fromkeys(proposal_channels or SXR_CHANNELS))
+    proposal_config = {
+        "threshold": proposal_threshold,
+        "score_threshold": proposal_score_threshold,
+        "min_distance_factor": 0.45,
+        "use_cpd": use_cpd,
+        "cpd_penalty": cpd_penalty,
+        "cpd_model": cpd_model,
+        "proposal_channels": proposal_channels,
+        "coincidence_window_s": float(coincidence_window_s),
+    }
     return FeatureMLCrashDetector(
         dt=dt,
+        downsample=downsample,
         model_path=model_path,
-        proposal_detector=proposal_detector,
+        proposal_detector_factory=detector_factory,
+        proposal_config=proposal_config,
         probability_threshold=probability_threshold,
     )
 
@@ -74,58 +91,34 @@ def detect_on_shot(
     multichannel=False,
     channels: Optional[Iterable[str]] = None,
     min_channels=2,
-    coincidence_window=0.3e-3,
+    coincidence_window=0.15e-3,
     plot=True,
     debug=False,
 ):
-    """Feature-ML crash detector pipeline.
+    """Use the v3 classifier on multi-SXR proposals and aligned diagnostics."""
 
-    The ML model classifies POSR candidates and raw CPD breakpoints.  CPD score
-    filtering, fallback, period suppression and event limits are disabled here.
-    """
     if model_path is None:
         raise ValueError("ml_pipeline requires model_path='...joblib'.")
 
+    proposal_channels = list(dict.fromkeys(channels or SXR_CHANNELS))
     prepared = prepare_shot_for_detection(
         source_dir=source_dir,
         filename=filename,
         logger=logger,
         channel_name=channel_name,
-        channels=channels,
+        channels=proposal_channels,
         require_sawtooth=False,
+        feature_channel_profile=MULTICHANNEL_FEATURE_PROFILE,
     )
     if prepared is None:
         return None
 
-    ds = max(1, int(downsample))
-    dt_ds = prepared.dt * ds
-
-    if multichannel:
-        return run_multichannel_detector(
-            prepared=prepared,
-            detector_factory=lambda: _make_ml_detector(
-                dt=dt_ds,
-                period=prepared.estimated_period,
-                model_path=model_path,
-                probability_threshold=probability_threshold,
-                proposal_sigma=proposal_sigma,
-                proposal_threshold=proposal_threshold,
-                proposal_score_threshold=proposal_score_threshold,
-                use_cpd=use_cpd,
-                cpd_penalty=cpd_penalty,
-                cpd_model=cpd_model,
-            ),
-            logger=logger,
-            downsample=ds,
-            coincidence_window=coincidence_window,
-            min_channels=min_channels,
-            plot=plot,
-            mode="feature_ml_multichannel",
-            debug=debug,
-        )
-
+    ds = int(downsample)
+    if ds < 1:
+        raise ValueError("downsample must be at least 1")
     detector = _make_ml_detector(
-        dt=dt_ds,
+        dt=prepared.dt * ds,
+        downsample=ds,
         period=prepared.estimated_period,
         model_path=model_path,
         probability_threshold=probability_threshold,
@@ -135,13 +128,27 @@ def detect_on_shot(
         use_cpd=use_cpd,
         cpd_penalty=cpd_penalty,
         cpd_model=cpd_model,
+        proposal_channels=proposal_channels,
+        coincidence_window_s=coincidence_window,
     )
-    return run_single_channel_detector(
-        prepared=prepared,
-        detector=detector,
-        logger=logger,
-        downsample=ds,
-        plot=plot,
-        mode="feature_ml",
+
+    indices = detector.detect(
+        prepared,
         debug=debug,
-    )
+        min_channels=min_channels if multichannel else 1,
+    ) * ds
+    mode = "feature_ml_multichannel" if multichannel else "feature_ml"
+
+    indices = indices[(indices >= 0) & (indices < len(prepared.time_plasma))]
+    crash_times = prepared.time_plasma[indices]
+    logger.info(f"Feature-ML detections: {len(crash_times)}")
+    logger.info(f"Detected reset times: {crash_times}")
+    logger.newline()
+    if plot:
+        plot_with_crashes(
+            prepared.shot,
+            crash_times,
+            channel_name=prepared.channel_name,
+            mode=mode,
+        )
+    return crash_times

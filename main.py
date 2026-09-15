@@ -47,13 +47,14 @@ def main(
     ml_proposal_sigma: Optional[float] = None,
     ml_proposal_threshold: float = 3.0,
     ml_proposal_score_threshold: float = 0.5,
+    ml_proposal_coincidence_window: float = 0.15e-3,
     ml_use_cpd: bool = True,
     ml_cpd_penalty: float = 3.0,
     ml_cpd_model: str = "rbf",
     pseudo_labels_path: str = "data/dataset/wavelet_pseudo_labels.json",
-    candidates_output: str = "data/dataset/feature_ml_candidates.json",
-    features_output: str = "data/dataset/feature_candidates.npz",
-    metrics_output: str = "data/model_data/feature_ml_metrics.json",
+    candidates_output: str = "data/dataset/feature_ml_candidates_v3.json",
+    features_output: str = "data/dataset/feature_candidates_v3.npz",
+    metrics_output: str = "data/model_data/feature_ml_metrics_v3.json",
     ml_backend: str = "sklearn_hgb",
     random_state: int = 42,
     wavelet_use_local_period_nms=True,
@@ -78,7 +79,7 @@ def main(
                 source_dir=source_dir,
                 candidates_output=candidates_output,
                 features_output=features_output,
-                model_output=model_path or "data/model_data/feature_ml.joblib",
+                model_output=model_path or "data/model_data/feature_ml_v3.joblib",
                 metrics_output=metrics_output,
                 backend=ml_backend,
                 random_state=random_state,
@@ -88,6 +89,7 @@ def main(
                 use_cpd=ml_use_cpd,
                 cpd_penalty=ml_cpd_penalty,
                 cpd_model=ml_cpd_model,
+                proposal_coincidence_window_s=ml_proposal_coincidence_window,
                 debug=debug,
             )
             return
@@ -196,7 +198,7 @@ def main(
                     multichannel=multichannel,
                     channels=channels,
                     min_channels=min_channels,
-                    coincidence_window=coincidence_window,
+                    coincidence_window=ml_proposal_coincidence_window,
                     plot=plot,
                     debug=debug,
                 )
@@ -235,7 +237,11 @@ def parse_cli_args():
     parser.add_argument("--ch", nargs="+", help="Reference channel names, one per file")
     parser.add_argument("--wt_threshold", type=float, nargs="+", help="Wavelet energy profile threshold")
 
-    parser.add_argument("--multichannel", action="store_true", help="Run detector on several SXR channels and vote")
+    parser.add_argument(
+        "--multichannel",
+        action="store_true",
+        help="SXR voting for non-ML methods; minimum source-channel support for feature_ml",
+    )
     parser.add_argument("--channels", nargs="+", default=None, help="SXR channels for multichannel mode")
     parser.add_argument("--min_channels", type=int, default=2)
     parser.add_argument("--coincidence_window", type=float, default=0.3e-3, help="Voting window in seconds")
@@ -263,6 +269,12 @@ def parse_cli_args():
     parser.add_argument("--ml_proposal_threshold", type=float, default=3.0)
     parser.add_argument("--ml_proposal_score_threshold", type=float, default=0.5)
     parser.add_argument(
+        "--ml_proposal_coincidence_window",
+        type=float,
+        default=0.15e-3,
+        help="Window for merging SXR ML proposals in seconds",
+    )
+    parser.add_argument(
         "--ml_no_cpd",
         action="store_true",
         help="Disable raw CPD proposals for feature_ml",
@@ -277,12 +289,12 @@ def parse_cli_args():
     )
     parser.add_argument(
         "--candidates_output",
-        default="data/dataset/feature_ml_candidates.json",
+        default="data/dataset/feature_ml_candidates_v3.json",
     )
-    parser.add_argument("--features_output", default="data/dataset/feature_candidates.npz")
+    parser.add_argument("--features_output", default="data/dataset/feature_candidates_v3.npz")
     parser.add_argument(
         "--metrics_output",
-        default="data/model_data/feature_ml_metrics.json",
+        default="data/model_data/feature_ml_metrics_v3.json",
     )
     parser.add_argument("--ml_backend", default="sklearn_hgb")
     parser.add_argument("--random_state", type=int, default=42)
@@ -332,6 +344,7 @@ if __name__ == "__main__":
             ml_proposal_sigma=args.ml_proposal_sigma,
             ml_proposal_threshold=args.ml_proposal_threshold,
             ml_proposal_score_threshold=args.ml_proposal_score_threshold,
+            ml_proposal_coincidence_window=args.ml_proposal_coincidence_window,
             ml_use_cpd=not args.ml_no_cpd,
             ml_cpd_penalty=args.ml_cpd_penalty,
             ml_cpd_model=args.ml_cpd_model,
@@ -404,7 +417,7 @@ if __name__ == "__main__":
         #     # wavelet_name="gaus1",
         #     wavelet_name="mexh"
         # )
-        #
+
         # main(
         #     mode="train",
         #     method="feature_ml",
@@ -414,7 +427,7 @@ if __name__ == "__main__":
         main(
             mode="detect",
             method="feature_ml",
-            model_path="data/model_data/feature_ml.joblib",
+            model_path="data/model_data/feature_ml_v3.joblib",
             files_channels=test_files_channels,
         )
 
