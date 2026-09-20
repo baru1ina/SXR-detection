@@ -18,6 +18,13 @@ from sklearn.metrics import (
 )
 
 from config.channels import MULTICHANNEL_FEATURE_PROFILE
+from config.path import (
+    DEFAULT_CANDIDATES_PATH,
+    DEFAULT_FEATURES_PATH,
+    DEFAULT_METRICS_PATH,
+    DEFAULT_MODEL_PATH,
+    SXR_CHANNELS,
+)
 from src.detection.ml.multichannel_features import MultichannelFeatureBuilder
 from src.detection.ml.train.candidate_dataset import (
     CandidateDataset,
@@ -141,7 +148,7 @@ def extract_feature_rows(
             filename=shot.relative_path,
             logger=logger,
             channel_name=shot.channel,
-            channels=[shot.channel],
+            channels=list(dict.fromkeys([*SXR_CHANNELS, shot.channel])),
             require_sawtooth=False,
             feature_channel_profile=feature_builder.profile,
         )
@@ -453,7 +460,7 @@ def save_model(model, report: dict, output_path: str | Path, effective_dt: float
     if report.get("feature_schema") != feature_builder.schema.to_dict():
         raise ValueError("Report feature schema does not match the current builder")
     if report.get("schema_version") != MODEL_SCHEMA_VERSION:
-        raise ValueError("Report is not a feature-ML schema v3 report")
+        raise ValueError("Report is not a feature-ML schema v5 report")
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(
@@ -501,10 +508,10 @@ def save_report(report: dict, output_path: str | Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the feature-ML candidate classifier")
-    parser.add_argument("--candidates", default="data/dataset/feature_ml_candidates_v3.json")
-    parser.add_argument("--model-output", default="data/model_data/feature_ml_v3.joblib")
-    parser.add_argument("--features-output", default="data/dataset/feature_candidates_v3.npz")
-    parser.add_argument("--report-output", default="data/model_data/feature_ml_metrics_v3.json")
+    parser.add_argument("--candidates", default=DEFAULT_CANDIDATES_PATH)
+    parser.add_argument("--model-output", default=DEFAULT_MODEL_PATH)
+    parser.add_argument("--features-output", default=DEFAULT_FEATURES_PATH)
+    parser.add_argument("--report-output", default=DEFAULT_METRICS_PATH)
     parser.add_argument("--backend", default="sklearn_hgb")
     parser.add_argument("--random-state", type=int, default=42)
     args = parser.parse_args()

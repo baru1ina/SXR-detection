@@ -16,7 +16,7 @@ from src.detection.utils.common import CrashCandidate, candidates_to_indices
 from src.detection.utils.features import score_crash_candidate, suppress_by_period
 
 
-MODEL_SCHEMA_VERSION = 3
+MODEL_SCHEMA_VERSION = 5
 
 
 class FeatureMLCrashDetector:
@@ -49,11 +49,11 @@ class FeatureMLCrashDetector:
                 raise
             raise ValueError(
                 f"Model {self.model_path} is an old single-channel feature-ML "
-                "artifact; retrain the multichannel schema v3 model"
+                "artifact; retrain the multichannel schema v5 model"
             ) from exc
         if not isinstance(payload, dict) or payload.get("schema_version") != MODEL_SCHEMA_VERSION:
             raise ValueError(
-                f"Model {self.model_path} is not a feature-ML schema v3 artifact; "
+                f"Model {self.model_path} is not a feature-ML schema v5 artifact; "
                 "retrain the multichannel model before detection"
             )
 

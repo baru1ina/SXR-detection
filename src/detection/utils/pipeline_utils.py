@@ -34,6 +34,7 @@ class PreparedShot:
     saw_mask: Optional[np.ndarray] = None
     aligned_signals: Optional[AlignedSignalSet] = None
     feature_profile: Optional[str] = None
+    channel_snr: Optional[Dict[str, float]] = None
 
 
 def preprocess_sxr_signal(signal: np.ndarray) -> np.ndarray:
@@ -58,6 +59,8 @@ def prepare_shot_for_detection(
     channels: Optional[Iterable[str]] = None,
     require_sawtooth: bool = True,
     feature_channel_profile: Optional[DiagnosticChannelProfile] = None,
+    minimum_snr: Optional[float] = None,
+    auto_reference_sxr: bool = False,
 ) -> Optional[PreparedShot]:
     requested_channels = list(channels or SXR_CHANNELS)
     load_channels = sorted(set(requested_channels + [channel_name, IP_CHANNEL]))
@@ -81,7 +84,7 @@ def prepare_shot_for_detection(
         logger.error(f"Ip channel '{IP_CHANNEL}' not found.")
         logger.newline()
         return None
-    if channel_name not in shot.channel_names:
+    if not auto_reference_sxr and channel_name not in shot.channel_names:
         logger.error(f"Channel '{channel_name}' not found.")
         logger.newline()
         return None
@@ -99,9 +102,47 @@ def prepare_shot_for_detection(
     time_plasma = shot.time[mask]
     dt = float(shot.dt)
 
+    channel_snr: Dict[str, float] = {}
+    for candidate_channel in requested_channels:
+        if candidate_channel not in shot.channel_names:
+            continue
+        candidate_raw = shot.signals[:, shot.channel_names.index(candidate_channel)]
+        candidate_prehistory = safe_prehistory(shot.time, candidate_raw, t_start)
+        channel_snr[candidate_channel] = float(
+            np.std(candidate_raw[mask]) / (np.std(candidate_prehistory) + 1e-8)
+        )
+    if auto_reference_sxr:
+        eligible_channels = [
+            candidate_channel for candidate_channel in SXR_CHANNELS
+            if candidate_channel in channel_snr and np.isfinite(channel_snr[candidate_channel])
+        ]
+        if not eligible_channels:
+            logger.error("No usable SXR channel found for automatic reference selection.")
+            logger.newline()
+            return None
+        channel_name = max(
+            eligible_channels,
+            key=lambda name: (channel_snr[name], name == channel_name),
+        )
+        logger.info(f"Selected ML reference SXR: {channel_name} (SNR={channel_snr[channel_name]:.2f})")
+
     ref_raw = shot.signals[:, shot.channel_names.index(channel_name)]
     reference_signal = preprocess_sxr_signal(ref_raw[mask])
     prehist = safe_prehistory(shot.time, ref_raw, t_start)
+
+    if minimum_snr is not None:
+        if not np.isfinite(minimum_snr) or minimum_snr <= 0:
+            raise ValueError("minimum_snr must be positive and finite")
+        snr = channel_snr.get(channel_name)
+        if snr is None:
+            snr = float(np.std(ref_raw[mask]) / (np.std(prehist) + 1e-8))
+        if not np.isfinite(snr) or snr < minimum_snr:
+            logger.warning(
+                f"Shot/channel rejected by the SNR-only training check: "
+                f"SNR={snr:.2f} < {minimum_snr:.2f}."
+            )
+            logger.newline()
+            return None
 
     saw_result = detect_sawtooth_hybrid(
         reference_signal,
@@ -209,6 +250,7 @@ def prepare_shot_for_detection(
         feature_profile=(
             None if feature_channel_profile is None else feature_channel_profile.name
         ),
+        channel_snr=channel_snr,
     )
 
 

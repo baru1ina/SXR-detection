@@ -89,6 +89,12 @@ def collect_multisxr_candidates(
         )
         source_channels = sorted({candidate.channel for candidate in cluster})
         source_methods = sorted({str(candidate.method or "unknown") for candidate in cluster})
+        source_channel_methods = {
+            channel_name: sorted(
+                {str(candidate.method or "unknown") for candidate in cluster if candidate.channel == channel_name}
+            )
+            for channel_name in source_channels
+        }
         source_scores = [
             float(candidate.score) if np.isfinite(candidate.score) else 0.0
             for candidate in cluster
@@ -105,6 +111,7 @@ def collect_multisxr_candidates(
                 meta={
                     "source_channels": source_channels,
                     "source_methods": source_methods,
+                    "source_channel_methods": source_channel_methods,
                     "source_scores": source_scores,
                     "source_count": len(source_channels),
                     "proposal_count": len(cluster),

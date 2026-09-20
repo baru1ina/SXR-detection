@@ -3,7 +3,7 @@ from typing import Iterable, Optional
 import numpy as np
 
 from config.channels import MULTICHANNEL_FEATURE_PROFILE
-from config.path import SXR_CHANNELS
+from config.path import DEFAULT_MODEL_PATH, SXR_CHANNELS
 from src.detection.ml.models.feature_ml_detector import FeatureMLCrashDetector
 from src.detection.ml.models.hybrid_proposal_detector import HybridProposalDetector
 from src.detection.models.cpd_detector import CPDDetector
@@ -35,7 +35,7 @@ def _make_ml_detector(
 ):
     if proposal_sigma is not None:
         raise ValueError(
-            "A custom proposal sigma is not supported by the trained v3 model; "
+            "A custom proposal sigma is not supported by the trained v5 model; "
             "use the saved period-dependent POSR scale"
         )
     def detector_factory(_dt, _period):
@@ -95,10 +95,9 @@ def detect_on_shot(
     plot=True,
     debug=False,
 ):
-    """Use the v3 classifier on multi-SXR proposals and aligned diagnostics."""
+    """Use the v5 classifier on multi-SXR proposals and aligned diagnostics."""
 
-    if model_path is None:
-        raise ValueError("ml_pipeline requires model_path='...joblib'.")
+    model_path = model_path or DEFAULT_MODEL_PATH
 
     proposal_channels = list(dict.fromkeys(channels or SXR_CHANNELS))
     prepared = prepare_shot_for_detection(
@@ -108,6 +107,8 @@ def detect_on_shot(
         channel_name=channel_name,
         channels=proposal_channels,
         require_sawtooth=False,
+        auto_reference_sxr=True,
+        minimum_snr=2.0,
         feature_channel_profile=MULTICHANNEL_FEATURE_PROFILE,
     )
     if prepared is None:

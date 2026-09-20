@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 
-from config.path import SXR_CHANNELS
+from config.path import DEFAULT_CANDIDATES_PATH, DEFAULT_PSEUDO_LABELS_PATH, SXR_CHANNELS
 from src.detection.ml.multisxr_proposals import collect_multisxr_candidates
 from src.detection.ml.train.pseudo_labels import (
     PseudoLabelDataset,
@@ -17,7 +17,7 @@ from src.detection.ml.train.pseudo_labels import (
 )
 
 
-CANDIDATE_DATASET_SCHEMA_VERSION = 2
+CANDIDATE_DATASET_SCHEMA_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -217,6 +217,9 @@ def label_candidates(
             proposals_by_index[plasma_index] = proposal
 
     teacher_times = np.asarray([event.time_s for event in teacher.events], dtype=float)
+    uncertain_times = np.asarray(
+        [event.time_s for event in teacher.uncertain_events], dtype=float
+    )
     is_not_saw = teacher.category.casefold() == "notsaw"
     if not is_not_saw and len(teacher_times) == 0:
         raise ValueError(f"No teacher events for sawtooth shot {teacher.shot_id}")
@@ -238,6 +241,9 @@ def label_candidates(
             closest_time = float(teacher_times[nearest])
             if distance <= config.positive_tolerance_s:
                 label = 1
+            elif len(uncertain_times) and np.min(np.abs(uncertain_times - time_s)) < config.negative_exclusion_s:
+                ignored_count += 1
+                continue
             elif distance >= config.negative_exclusion_s:
                 label = 0
             else:
@@ -409,8 +415,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Build labeled POSR + raw CPD candidates from wavelet pseudo-labels"
     )
-    parser.add_argument("--pseudo-labels", default="data/dataset/wavelet_pseudo_labels.json")
-    parser.add_argument("--output", default="data/dataset/feature_ml_candidates_v3.json")
+    parser.add_argument("--pseudo-labels", default=DEFAULT_PSEUDO_LABELS_PATH)
+    parser.add_argument("--output", default=DEFAULT_CANDIDATES_PATH)
     parser.add_argument("--downsample", type=int, default=None)
     parser.add_argument("--threshold", type=float, default=3.0)
     parser.add_argument("--score-threshold", type=float, default=0.5)

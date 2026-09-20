@@ -8,15 +8,21 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 
+from config.path import DEFAULT_PSEUDO_LABELS_PATH, SXR_CHANNELS
 from src.detection.ml.train.manifest import ShotRecord, ShotSplit, build_shot_manifest, stratified_shot_split
 
 
-PSEUDO_LABEL_SCHEMA_VERSION = 1
+PSEUDO_LABEL_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
 class WaveletLabelConfig:
     channel: str = "SXR 50 mkm"
+    channels: tuple[str, ...] = tuple(SXR_CHANNELS)
+    min_snr: float = 2.0
+    min_support_channels: int = 2
+    coincidence_window_s: float = 0.15e-3
+    seed_period_s: float = 3e-3
     downsample: int = 10
     wt_threshold: float = 1.0
     wavelet_name: str = "mexh"
@@ -28,6 +34,20 @@ class WaveletLabelConfig:
     raw_peak_distance_s: float = 0.15e-3
     periodic_min_chain_len: int = 3
     periodic_tolerance: float = 0.40
+
+    def __post_init__(self):
+        channels = tuple(dict.fromkeys(self.channels))
+        if not channels:
+            raise ValueError("At least one SXR teacher channel is required")
+        if self.min_snr <= 0 or not np.isfinite(self.min_snr):
+            raise ValueError("min_snr must be positive and finite")
+        if self.min_support_channels < 1:
+            raise ValueError("min_support_channels must be positive")
+        if self.coincidence_window_s <= 0 or not np.isfinite(self.coincidence_window_s):
+            raise ValueError("coincidence_window_s must be positive and finite")
+        if self.seed_period_s <= 0 or not np.isfinite(self.seed_period_s):
+            raise ValueError("seed_period_s must be positive and finite")
+        object.__setattr__(self, "channels", channels)
 
 
 @dataclass(frozen=True)
@@ -53,6 +73,7 @@ class PseudoLabeledShot:
     plasma_start_s: Optional[float]
     plasma_end_s: Optional[float]
     events: tuple[PseudoLabelEvent, ...]
+    uncertain_events: tuple[PseudoLabelEvent, ...] = ()
     error: Optional[str] = None
 
 
@@ -142,58 +163,101 @@ def label_prepared_shot(
 ) -> PseudoLabeledShot:
 
     downsample = config.downsample
-    signal = np.asarray(prepared.reference_signal)[::downsample]
-    period_map = None if prepared.period_map is None else np.asarray(prepared.period_map)[::downsample]
-    active_mask = None if prepared.saw_mask is None else np.asarray(prepared.saw_mask)[::downsample]
-
-    detector = detector_factory(
-        float(prepared.dt) * downsample,
-        float(prepared.estimated_period),
-        config,
-    )
-    candidates = detector.detect_candidates(
-        signal,
-        period=float(prepared.estimated_period),
-        period_map=period_map,
-        active_mask=active_mask,
-        channel=config.channel,
-        debug=debug,
-    )
-
     time_plasma = np.asarray(prepared.time_plasma, dtype=float)
     if len(time_plasma) == 0:
         raise ValueError(f"Empty plasma interval for {record.shot_id}")
+    if record.category.casefold() == "notsaw":
+        return PseudoLabeledShot(
+            shot_id=record.shot_id,
+            category=record.category,
+            relative_path=record.relative_path,
+            status="labeled",
+            channel=prepared.channel_name,
+            dt_s=_finite_float(prepared.dt),
+            estimated_period_s=_finite_float(prepared.estimated_period),
+            plasma_start_s=float(time_plasma[0]),
+            plasma_end_s=float(time_plasma[-1]),
+            events=(),
+            uncertain_events=(),
+        )
+    dt_effective = float(prepared.dt) * downsample
+    raw_candidates = []
+    channel_snr = getattr(prepared, "channel_snr", None) or {}
+    for channel_name in config.channels:
+        signal = prepared.channel_signals.get(channel_name)
+        snr = channel_snr.get(channel_name, np.nan)
+        if signal is None or not np.isfinite(snr) or snr < config.min_snr:
+            continue
+        detector = detector_factory(dt_effective, config.seed_period_s, config)
+        raw_candidates.extend(
+            detector.detect_candidates(
+                np.asarray(signal)[::downsample],
+                period=config.seed_period_s,
+                period_map=None,
+                active_mask=None,
+                channel=channel_name,
+                debug=debug,
+            )
+        )
 
-    events_by_index: dict[int, PseudoLabelEvent] = {}
-    for candidate in candidates:
-        plasma_index = int(candidate.index) * downsample
+    max_gap = max(1, int(round(config.coincidence_window_s / dt_effective)))
+    raw_candidates.sort(key=lambda candidate: candidate.index)
+    clusters = []
+    for candidate in raw_candidates:
+        if not clusters or candidate.index - clusters[-1][0].index > max_gap:
+            clusters.append([candidate])
+        else:
+            clusters[-1].append(candidate)
+
+    confirmed_events = []
+    uncertain_events = []
+    for cluster in clusters:
+        support_channels = sorted({candidate.channel for candidate in cluster})
+        median_index = float(np.median([candidate.index for candidate in cluster]))
+        representative = min(
+            cluster,
+            key=lambda candidate: (
+                abs(candidate.index - median_index),
+                -channel_snr.get(candidate.channel, 0.0),
+            ),
+        )
+        plasma_index = int(representative.index) * downsample
         if not 0 <= plasma_index < len(time_plasma):
             continue
-
         event = PseudoLabelEvent(
             plasma_index=plasma_index,
             time_s=float(time_plasma[plasma_index]),
             relative_time_s=float(time_plasma[plasma_index] - time_plasma[0]),
-            score=float(candidate.score),
-            direction=str(candidate.direction),
-            method=str(candidate.method or "wavelet_energy"),
-            metadata=_json_safe(dict(candidate.meta)),
+            score=float(max(candidate.score for candidate in cluster)),
+            direction=str(representative.direction),
+            method="multi_sxr_wavelet",
+            metadata=_json_safe({
+                "source_channels": support_channels,
+                "support_count": len(support_channels),
+                "channel_snr": {name: channel_snr[name] for name in support_channels},
+                "time_spread_s": (
+                    max(candidate.index for candidate in cluster)
+                    - min(candidate.index for candidate in cluster)
+                ) * dt_effective,
+            }),
         )
-        previous = events_by_index.get(plasma_index)
-        if previous is None or event.score > previous.score:
-            events_by_index[plasma_index] = event
+        if len(support_channels) >= config.min_support_channels:
+            confirmed_events.append(event)
+        else:
+            uncertain_events.append(event)
 
     return PseudoLabeledShot(
         shot_id=record.shot_id,
         category=record.category,
         relative_path=record.relative_path,
         status="labeled",
-        channel=config.channel,
+        channel=prepared.channel_name,
         dt_s=_finite_float(prepared.dt),
         estimated_period_s=_finite_float(prepared.estimated_period),
         plasma_start_s=float(time_plasma[0]),
         plasma_end_s=float(time_plasma[-1]),
-        events=tuple(events_by_index[index] for index in sorted(events_by_index)),
+        events=tuple(sorted(confirmed_events, key=lambda event: event.plasma_index)),
+        uncertain_events=tuple(sorted(uncertain_events, key=lambda event: event.plasma_index)),
     )
 
 
@@ -231,7 +295,10 @@ def _label_records(
                 filename=record.relative_path,
                 logger=logger,
                 channel_name=config.channel,
-                channels=[config.channel],
+                channels=config.channels,
+                require_sawtooth=False,
+                minimum_snr=config.min_snr,
+                auto_reference_sxr=True,
             )
             if prepared is None:
                 labeled.append(_empty_shot(record, config, "skipped_preprocessing"))
@@ -297,8 +364,10 @@ def load_pseudo_labels(input_path: str | Path) -> PseudoLabelDataset:
 
     def parse_shot(item: dict[str, Any]) -> PseudoLabeledShot:
         events = tuple(PseudoLabelEvent(**event) for event in item.get("events", []))
+        uncertain_events = tuple(PseudoLabelEvent(**event) for event in item.get("uncertain_events", []))
         shot_data = dict(item)
         shot_data["events"] = events
+        shot_data["uncertain_events"] = uncertain_events
         return PseudoLabeledShot(**shot_data)
 
     return PseudoLabelDataset(
@@ -313,8 +382,10 @@ def load_pseudo_labels(input_path: str | Path) -> PseudoLabelDataset:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate wavelet pseudo-labels for the feature-ML dataset")
     parser.add_argument("--source-dir", default="data/raw")
-    parser.add_argument("--output", default="data/dataset/wavelet_pseudo_labels.json")
-    parser.add_argument("--channel", default="SXR 50 mkm")
+    parser.add_argument("--output", default=DEFAULT_PSEUDO_LABELS_PATH)
+    parser.add_argument("--channel", default="SXR 50 mkm", help="Preferred SXR when quality is tied")
+    parser.add_argument("--channels", nargs="+", default=SXR_CHANNELS)
+    parser.add_argument("--min-support-channels", type=int, default=2)
     parser.add_argument("--downsample", type=int, default=10)
     parser.add_argument("--validation-ratio", type=float, default=0.2)
     parser.add_argument("--random-state", type=int, default=42)
@@ -334,7 +405,12 @@ def main() -> None:
         source_dir=args.source_dir,
         split=split,
         logger=logger,
-        config=WaveletLabelConfig(channel=args.channel, downsample=args.downsample),
+        config=WaveletLabelConfig(
+            channel=args.channel,
+            channels=tuple(args.channels),
+            downsample=args.downsample,
+            min_support_channels=args.min_support_channels,
+        ),
         debug=args.debug,
     )
     output = save_pseudo_labels(dataset, args.output)

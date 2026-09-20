@@ -2,7 +2,15 @@ import argparse
 from datetime import datetime
 from typing import Callable, Dict, List, Optional, Tuple
 
-from config.path import SXR_CHANNELS, source_dir as DEFAULT_SOURCE_DIR
+from config.path import (
+    DEFAULT_CANDIDATES_PATH,
+    DEFAULT_FEATURES_PATH,
+    DEFAULT_METRICS_PATH,
+    DEFAULT_MODEL_PATH,
+    DEFAULT_PSEUDO_LABELS_PATH,
+    SXR_CHANNELS,
+    source_dir as DEFAULT_SOURCE_DIR,
+)
 from src.detection.cpd_pipeline import detect_on_shot as cpd_detection
 from src.detection.ml_pipeline import detect_on_shot as ml_detection
 from src.detection.posr_pipeline import detect_on_shot as posr_detection
@@ -51,10 +59,10 @@ def main(
     ml_use_cpd: bool = True,
     ml_cpd_penalty: float = 3.0,
     ml_cpd_model: str = "rbf",
-    pseudo_labels_path: str = "data/dataset/wavelet_pseudo_labels.json",
-    candidates_output: str = "data/dataset/feature_ml_candidates_v3.json",
-    features_output: str = "data/dataset/feature_candidates_v3.npz",
-    metrics_output: str = "data/model_data/feature_ml_metrics_v3.json",
+    pseudo_labels_path: str = DEFAULT_PSEUDO_LABELS_PATH,
+    candidates_output: str = DEFAULT_CANDIDATES_PATH,
+    features_output: str = DEFAULT_FEATURES_PATH,
+    metrics_output: str = DEFAULT_METRICS_PATH,
     ml_backend: str = "sklearn_hgb",
     random_state: int = 42,
     wavelet_use_local_period_nms=True,
@@ -79,7 +87,7 @@ def main(
                 source_dir=source_dir,
                 candidates_output=candidates_output,
                 features_output=features_output,
-                model_output=model_path or "data/model_data/feature_ml_v3.joblib",
+                model_output=model_path or DEFAULT_MODEL_PATH,
                 metrics_output=metrics_output,
                 backend=ml_backend,
                 random_state=random_state,
@@ -107,8 +115,8 @@ def main(
             f"Available: {sorted(DETECTION_METHODS)}"
         )
 
-    if method == "feature_ml" and model_path is None:
-        raise ValueError("feature_ml requires --model_path")
+    if method == "feature_ml":
+        model_path = model_path or DEFAULT_MODEL_PATH
 
     if not files_channels:
         logger.error("No files for detection")
@@ -258,7 +266,7 @@ def parse_cli_args():
     parser.add_argument("--posr_score_threshold", type=float, default=2.5)
 
 
-    parser.add_argument("--model_path", default=None, help="Path to trained feature-ML .joblib model")
+    parser.add_argument("--model_path", default=None, help=f"Feature-ML model path (default: {DEFAULT_MODEL_PATH})")
     parser.add_argument(
         "--probability_threshold",
         type=float,
@@ -284,17 +292,17 @@ def parse_cli_args():
 
     parser.add_argument(
         "--pseudo_labels_path",
-        default="data/dataset/wavelet_pseudo_labels.json",
+        default=DEFAULT_PSEUDO_LABELS_PATH,
         help="Wavelet pseudo-label JSON used by feature_ml training",
     )
     parser.add_argument(
         "--candidates_output",
-        default="data/dataset/feature_ml_candidates_v3.json",
+        default=DEFAULT_CANDIDATES_PATH,
     )
-    parser.add_argument("--features_output", default="data/dataset/feature_candidates_v3.npz")
+    parser.add_argument("--features_output", default=DEFAULT_FEATURES_PATH)
     parser.add_argument(
         "--metrics_output",
-        default="data/model_data/feature_ml_metrics_v3.json",
+        default=DEFAULT_METRICS_PATH,
     )
     parser.add_argument("--ml_backend", default="sklearn_hgb")
     parser.add_argument("--random_state", type=int, default=42)
@@ -356,20 +364,20 @@ if __name__ == "__main__":
             random_state=args.random_state,
         )
     else:
-        test_files_channels = [
-            ("sht46358.SHT", "SXR 15 мкм"),
-            ("sht39627.SHT", "SXR 15 мкм"),
-            ("sht38296.SHT", "SXR 50 mkm"),
-            ("sht41025.SHT", "SXR 50 mkm"),
-            ("sht41105.SHT", "SXR 50 mkm"),
-            ("sht42465.SHT", "SXR 50 mkm"),
-            ("sht43043.SHT", "SXR 50 mkm"),
+        # test_files_channels = [
+        #     ("sht46358.SHT", "SXR 15 мкм"),
+        #     ("sht39627.SHT", "SXR 15 мкм"),
+        #     ("sht38296.SHT", "SXR 50 mkm"),
+        #     ("sht41025.SHT", "SXR 50 mkm"),
+        #     ("sht41105.SHT", "SXR 50 mkm"),
+        #     ("sht42465.SHT", "SXR 50 mkm"),
+        #     ("sht43043.SHT", "SXR 50 mkm"),
             # ("sht44335.SHT", "SXR 80 mkm"),
             # ("sht44335.SHT", "SXR 127 мкм"),
             # ("sht44335.SHT", "SXR 15 мкм"),
             # ("sht44335.SHT", "SXR 50 mkm"),
             # ("sht44428.SHT", "SXR 50 mkm"),
-        ]
+        # ]
 
         # test_files_channels = [
             # ("sht45898.SHT", "SXR 50 mkm"),
@@ -389,10 +397,11 @@ if __name__ == "__main__":
         #     ("sht39499.SHT", "SXR 15 мкм"),
         # ]
 
-        # import os
-        # test_files_channels = []
-        # for file in os.listdir(DEFAULT_SOURCE_DIR):
-        #     test_files_channels.append((str(file), "SXR 50 mkm"))
+
+        import os
+        test_files_channels = []
+        for file in os.listdir("data/raw/random"):
+            test_files_channels.append((str(file), "SXR 50 mkm"))
 
         # wt_thresholds = [2.0, 2.0]
         # wt_thresholds = [1, 3]
@@ -404,7 +413,8 @@ if __name__ == "__main__":
 
         # main(
         #     mode="detect",
-        #     source_dir=DEFAULT_SOURCE_DIR,
+        #     # source_dir=DEFAULT_SOURCE_DIR,
+        #     source_dir="data/raw/random",
         #     # method="cpd",
         #     # method="cpd_features",
         #     # method="wavelet_posr",
@@ -426,8 +436,9 @@ if __name__ == "__main__":
 
         main(
             mode="detect",
+            source_dir="data/raw/random",
             method="feature_ml",
-            model_path="data/model_data/feature_ml_v3.joblib",
+            model_path=DEFAULT_MODEL_PATH,
             files_channels=test_files_channels,
         )
 
@@ -517,3 +528,12 @@ if __name__ == "__main__":
         #     multichannel=False,
         #     debug=True
         # )
+
+
+  # .venv/bin/python main.py --mode train --method feature_ml \
+  #   --source_dir data/raw \
+  #   --pseudo_labels_path data/dataset/wavelet_pseudo_labels_expanded.json \
+  #   --candidates_output data/dataset/feature_ml_candidates_expanded.json \
+  #   --features_output data/dataset/feature_candidates_expanded.npz \
+  #   --metrics_output data/model_data/feature_ml_metrics_expanded.json \
+  #   --model_path data/model_data/feature_ml_expanded.joblib

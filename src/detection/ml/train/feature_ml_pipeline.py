@@ -2,6 +2,13 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
+from config.path import (
+    DEFAULT_CANDIDATES_PATH,
+    DEFAULT_FEATURES_PATH,
+    DEFAULT_METRICS_PATH,
+    DEFAULT_MODEL_PATH,
+    DEFAULT_PSEUDO_LABELS_PATH,
+)
 from src.detection.ml.train.candidate_dataset import (
     CandidateDataset,
     FeatureMLCandidateConfig,
@@ -29,12 +36,12 @@ class FeatureMLTrainingArtifacts:
 
 def train_feature_ml_from_pseudo_labels(
     logger,
-    pseudo_labels_path: str | Path = "data/dataset/wavelet_pseudo_labels.json",
+    pseudo_labels_path: str | Path = DEFAULT_PSEUDO_LABELS_PATH,
     source_dir: Optional[str | Path] = None,
-    candidates_output: str | Path = "data/dataset/feature_ml_candidates_v3.json",
-    features_output: str | Path = "data/dataset/feature_candidates_v3.npz",
-    model_output: str | Path = "data/model_data/feature_ml_v3.joblib",
-    metrics_output: str | Path = "data/model_data/feature_ml_metrics_v3.json",
+    candidates_output: str | Path = DEFAULT_CANDIDATES_PATH,
+    features_output: str | Path = DEFAULT_FEATURES_PATH,
+    model_output: str | Path = DEFAULT_MODEL_PATH,
+    metrics_output: str | Path = DEFAULT_METRICS_PATH,
     backend: str = "sklearn_hgb",
     random_state: int = 42,
     downsample: Optional[int] = None,
