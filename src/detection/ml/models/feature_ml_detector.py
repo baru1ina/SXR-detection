@@ -5,18 +5,39 @@ from typing import Optional
 import joblib
 import numpy as np
 
-from config.channels import MULTICHANNEL_FEATURE_PROFILE
+from config.channels import get_feature_map_profile
 from src.detection.ml.multichannel_features import (
     FeatureSchema,
     MultichannelFeatureBuilder,
 )
+from src.detection.ml.models.hybrid_proposal_detector import FeatureMLProposalDetector
 from src.detection.ml.multisxr_proposals import collect_multisxr_candidates
+from src.detection.models.cpd_detector import CPDDetector
 from src.detection.models.posr_detector import WaveletPOSRDetector
 from src.detection.utils.common import CrashCandidate, candidates_to_indices
 from src.detection.utils.features import score_crash_candidate, suppress_by_period
 
 
-MODEL_SCHEMA_VERSION = 5
+MODEL_SCHEMA_VERSION = 7
+
+
+def load_feature_ml_payload(model_path: str | Path) -> dict:
+    model_path = Path(model_path)
+    try:
+        payload = joblib.load(model_path)
+    except AttributeError as exc:
+        if "FeatureMLMetadata" not in str(exc):
+            raise
+        raise ValueError(
+            f"Model {model_path} is an old single-channel feature-ML "
+            "artifact; retrain the current multichannel model"
+        ) from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != MODEL_SCHEMA_VERSION:
+        raise ValueError(
+            f"Model {model_path} is not a current feature-ML artifact; "
+            "retrain the multichannel model before detection"
+        )
+    return payload
 
 
 class FeatureMLCrashDetector:
@@ -30,9 +51,8 @@ class FeatureMLCrashDetector:
         proposal_detector: Optional[object] = None,
         proposal_detector_factory: Optional[object] = None,
         probability_threshold: Optional[float] = None,
-        min_distance_factor: float = 0.45,
         feature_builder: Optional[MultichannelFeatureBuilder] = None,
-        proposal_config: Optional[dict] = None,
+        payload: Optional[dict] = None,
     ):
         self.dt = float(dt)
         self.downsample = int(downsample)
@@ -42,26 +62,14 @@ class FeatureMLCrashDetector:
             raise ValueError("downsample must be at least 1")
 
         self.model_path = Path(model_path)
-        try:
-            payload = joblib.load(self.model_path)
-        except AttributeError as exc:
-            if "FeatureMLMetadata" not in str(exc):
-                raise
-            raise ValueError(
-                f"Model {self.model_path} is an old single-channel feature-ML "
-                "artifact; retrain the multichannel schema v5 model"
-            ) from exc
-        if not isinstance(payload, dict) or payload.get("schema_version") != MODEL_SCHEMA_VERSION:
-            raise ValueError(
-                f"Model {self.model_path} is not a feature-ML schema v5 artifact; "
-                "retrain the multichannel model before detection"
-            )
+        payload = payload or load_feature_ml_payload(self.model_path)
 
-        self.feature_builder = feature_builder or MultichannelFeatureBuilder()
+        saved_profile = get_feature_map_profile(payload["feature_map_profile"])
+        self.feature_builder = feature_builder or MultichannelFeatureBuilder(saved_profile)
         saved_schema = FeatureSchema.from_dict(payload["feature_schema"])
         if saved_schema != self.feature_builder.schema:
             raise ValueError("Model feature schema does not match the current builder")
-        expected_channels = [asdict(channel) for channel in MULTICHANNEL_FEATURE_PROFILE.channels]
+        expected_channels = [asdict(channel) for channel in saved_profile.channels]
         if payload.get("diagnostic_channels") != expected_channels:
             raise ValueError("Model diagnostic channel profile does not match the current profile")
         if payload.get("downsample") != self.downsample:
@@ -71,24 +79,43 @@ class FeatureMLCrashDetector:
             )
         if not np.isclose(float(payload["effective_dt_s"]), self.dt, rtol=1e-4, atol=1e-12):
             raise ValueError("Model effective dt does not match runtime dt")
-        if proposal_config is not None and payload.get("proposal_config") != proposal_config:
-            raise ValueError("Runtime proposal settings do not match model training settings")
-
         self.model = payload["model"]
-        self.proposal_detector = proposal_detector or WaveletPOSRDetector(dt=self.dt)
-        self.proposal_detector_factory = (
-            proposal_detector_factory
-            or (lambda _dt, _period: self.proposal_detector)
-        )
         self.proposal_config = dict(payload["proposal_config"])
+        if proposal_detector_factory is not None:
+            self.proposal_detector_factory = proposal_detector_factory
+        elif proposal_detector is not None:
+            self.proposal_detector_factory = lambda _dt, _period: proposal_detector
+        else:
+            self.proposal_detector_factory = self._saved_proposal_detector_factory
         saved_threshold = float(payload["selected_threshold"])
         self.probability_threshold = float(
             saved_threshold if probability_threshold is None else probability_threshold
         )
         if not 0 <= self.probability_threshold <= 1:
             raise ValueError("probability_threshold must be between 0 and 1")
-        self.min_distance_factor = float(min_distance_factor)
+        self.min_distance_factor = float(self.proposal_config["min_distance_factor"])
         self.last_candidates: list[CrashCandidate] = []
+
+    def _saved_proposal_detector_factory(self, dt: float, period: float):
+        sigma = (
+            80e-6
+            if not np.isfinite(period) or period <= 0
+            else float(np.clip(0.03 * period, 30e-6, 200e-6))
+        )
+        return FeatureMLProposalDetector(
+            source=self.proposal_config["proposal_source"],
+            posr_detector=WaveletPOSRDetector(
+                dt=dt,
+                sigma=sigma,
+                threshold=float(self.proposal_config["threshold"]),
+                min_distance_factor=self.min_distance_factor,
+            ),
+            cpd_detector=CPDDetector(
+                dt=dt,
+                penalty=float(self.proposal_config["cpd_penalty"]),
+                model=str(self.proposal_config["cpd_model"]),
+            ),
+        )
 
     def _predict_proba(self, X: np.ndarray) -> np.ndarray:
         if hasattr(self.model, "predict_proba"):

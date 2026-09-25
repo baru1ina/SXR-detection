@@ -5,14 +5,19 @@ import numpy as np
 from src.detection.utils.common import CrashCandidate
 
 
-class HybridProposalDetector:
-    """Combine POSR proposals with unfiltered CPD breakpoints.
+PROPOSAL_SOURCES = ("posr", "cpd", "hybrid")
 
-    No candidates are merged or suppressed here.  The feature classifier sees
-    every proposal; suppression is applied only to its accepted predictions.
-    """
 
-    def __init__(self, posr_detector, cpd_detector):
+class FeatureMLProposalDetector:
+    """Select raw POSR, raw CPD, or their union for feature-ML."""
+
+    def __init__(self, source, posr_detector, cpd_detector):
+        source = str(source).lower()
+        if source not in PROPOSAL_SOURCES:
+            raise ValueError(
+                f"Unsupported proposal source {source!r}; expected one of {PROPOSAL_SOURCES}"
+            )
+        self.source = source
         self.posr_detector = posr_detector
         self.cpd_detector = cpd_detector
         self.last_candidates: list[CrashCandidate] = []
@@ -34,14 +39,23 @@ class HybridProposalDetector:
             "channel": channel,
             "debug": debug,
         }
-        posr = list(self.posr_detector.detect_candidates(signal, **common))
-        cpd = list(self.cpd_detector.detect_raw_candidates(signal, **common))
+        posr = (
+            list(self.posr_detector.detect_raw_candidates(signal, **common))
+            if self.source in {"posr", "hybrid"}
+            else []
+        )
+        cpd = (
+            list(self.cpd_detector.detect_raw_candidates(signal, **common))
+            if self.source in {"cpd", "hybrid"}
+            else []
+        )
         self.last_source_counts = {"posr": len(posr), "cpd_raw": len(cpd)}
         self.last_candidates = posr + cpd
 
         if debug:
             print(
-                f"[HybridProposal] posr={len(posr)}, cpd_raw={len(cpd)}, "
+                f"[FeatureMLProposal] source={self.source}, "
+                f"posr_raw={len(posr)}, cpd_raw={len(cpd)}, "
                 f"total={len(self.last_candidates)}, pre_ml_nms=disabled"
             )
         return self.last_candidates

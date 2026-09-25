@@ -57,9 +57,7 @@ class DiagnosticChannelProfile:
         return list(dict.fromkeys(channel.group for channel in self.channels))
 
 
-MULTICHANNEL_FEATURE_PROFILE = DiagnosticChannelProfile(
-    name="plasma_diagnostics_v1",
-    channels=(
+_FULL_DIAGNOSTIC_CHANNELS = (
         DiagnosticChannel(
             "Ip новый (Пр1ВК) (инт.16)",
             "ip_new",
@@ -107,5 +105,48 @@ MULTICHANNEL_FEATURE_PROFILE = DiagnosticChannelProfile(
             "diamagnetic",
             "diamagnetic",
         ),
+)
+
+
+REFERENCE_SXR_FEATURE_PROFILE = DiagnosticChannelProfile(
+    name="reference_sxr",
+    channels=(),
+)
+
+CORE_DIAGNOSTICS_FEATURE_PROFILE = DiagnosticChannelProfile(
+    name="core_diagnostics",
+    channels=tuple(
+        channel
+        for channel in _FULL_DIAGNOSTIC_CHANNELS
+        if channel.group in {"plasma_current", "d_alpha", "mhd"}
     ),
 )
+
+FULL_FEATURE_PROFILE = DiagnosticChannelProfile(
+    name="full",
+    channels=_FULL_DIAGNOSTIC_CHANNELS,
+)
+
+# Backward-compatible import name used throughout the project.  It now means
+# the explicitly named full feature-map profile.
+MULTICHANNEL_FEATURE_PROFILE = FULL_FEATURE_PROFILE
+
+FEATURE_MAP_PROFILES = {
+    profile.name: profile
+    for profile in (
+        REFERENCE_SXR_FEATURE_PROFILE,
+        CORE_DIAGNOSTICS_FEATURE_PROFILE,
+        FULL_FEATURE_PROFILE,
+    )
+}
+
+
+def get_feature_map_profile(name: str) -> DiagnosticChannelProfile:
+    key = str(name).lower()
+    try:
+        return FEATURE_MAP_PROFILES[key]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unknown feature profile {name!r}; expected one of "
+            f"{tuple(FEATURE_MAP_PROFILES)}"
+        ) from exc

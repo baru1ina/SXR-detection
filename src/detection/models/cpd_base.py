@@ -264,6 +264,15 @@ class BaseCPDDetector(ABC):
         diagnostics; the downstream classifier decides which points to keep.
         """
 
+        try:
+            import ruptures  # noqa: F401
+        except ModuleNotFoundError as exc:
+            raise ModuleNotFoundError(
+                "Raw CPD proposals require the 'ruptures' package. "
+                "Install the project requirements before using proposal source "
+                "'cpd' or 'hybrid'."
+            ) from exc
+
         del active_mask  # Explicitly ignored: masking would be post-processing.
         x = np.asarray(signal, dtype=float)
         if len(x) < 20:

@@ -129,7 +129,7 @@ def detect_sawtooth_hybrid(
 
     if not is_saw:
         logger.warning("Sawtooth regime rejected by the ACF/FFT pre-filter.")
-        return False, None, None, None, None
+        # return False, None, None, None, None
 
     logger.info(f"fft_ratio = {fft_ratio}")
 

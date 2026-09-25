@@ -15,7 +15,10 @@ from src.preprocessing.alignment import (
 )
 from src.preprocessing.cleaning import remove_mean
 from src.preprocessing.normalization import robust_scale
-from src.preprocessing.plasma_detection import detect_plasma_interval
+from src.preprocessing.plasma_detection import (
+    detect_plasma_interval,
+    detect_plasma_plateau_mask,
+)
 from src.visualization.plots import plot_with_crashes
 
 
@@ -35,6 +38,9 @@ class PreparedShot:
     aligned_signals: Optional[AlignedSignalSet] = None
     feature_profile: Optional[str] = None
     channel_snr: Optional[Dict[str, float]] = None
+    plasma_current_fraction: Optional[np.ndarray] = None
+    plasma_plateau_mask: Optional[np.ndarray] = None
+    plasma_plateau_start_s: Optional[float] = None
 
 
 def preprocess_sxr_signal(signal: np.ndarray) -> np.ndarray:
@@ -61,13 +67,19 @@ def prepare_shot_for_detection(
     feature_channel_profile: Optional[DiagnosticChannelProfile] = None,
     minimum_snr: Optional[float] = None,
     auto_reference_sxr: bool = False,
+    enable_plasma_plateau_gate: bool = False,
+    plateau_level_fraction: float = 0.8,
+    plateau_hold_s: float = 0.5e-3,
 ) -> Optional[PreparedShot]:
     requested_channels = list(channels or SXR_CHANNELS)
     load_channels = sorted(set(requested_channels + [channel_name, IP_CHANNEL]))
 
     loader = SHTLoader(source_dir, logger=logger)
     multirate_shot = None
-    if feature_channel_profile is None:
+    needs_aligned_diagnostics = bool(
+        feature_channel_profile is not None and feature_channel_profile.channels
+    )
+    if not needs_aligned_diagnostics:
         shot = loader.load_shot(filename, channels=load_channels)
     else:
         feature_channels = feature_channel_profile.channel_names
@@ -101,6 +113,34 @@ def prepare_shot_for_detection(
     mask = (shot.time >= t_start) & (shot.time <= t_end)
     time_plasma = shot.time[mask]
     dt = float(shot.dt)
+    plasma_plateau_mask = None
+    plasma_current_fraction = None
+    plateau_start_index = None
+    if enable_plasma_plateau_gate:
+        (
+            plasma_plateau_mask,
+            plasma_current_fraction,
+            plateau_start_index,
+        ) = detect_plasma_plateau_mask(
+            ip_signal[mask],
+            dt,
+            level_fraction=plateau_level_fraction,
+            hold_s=plateau_hold_s,
+        )
+    plasma_plateau_start_s = (
+        None
+        if plateau_start_index is None
+        else float(time_plasma[plateau_start_index])
+    )
+    if enable_plasma_plateau_gate:
+        if plasma_plateau_start_s is None:
+            logger.warning(
+                "Plasma-current plateau was not found; ML proposal gate is closed."
+            )
+        else:
+            logger.info(
+                f"Plasma-current plateau starts at {plasma_plateau_start_s:.6f} s"
+            )
 
     channel_snr: Dict[str, float] = {}
     for candidate_channel in requested_channels:
@@ -194,7 +234,7 @@ def prepare_shot_for_detection(
         channel_signals[channel_name] = reference_signal
 
     aligned_signals = None
-    if feature_channel_profile is not None:
+    if needs_aligned_diagnostics:
         alignment_specs = {}
         profile_by_name = feature_channel_profile.channels_by_name
         for name in feature_channel_profile.channel_names:
@@ -251,6 +291,9 @@ def prepare_shot_for_detection(
             None if feature_channel_profile is None else feature_channel_profile.name
         ),
         channel_snr=channel_snr,
+        plasma_current_fraction=plasma_current_fraction,
+        plasma_plateau_mask=plasma_plateau_mask,
+        plasma_plateau_start_s=plasma_plateau_start_s,
     )
 
 

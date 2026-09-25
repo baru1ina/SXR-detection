@@ -196,6 +196,85 @@ class WaveletPOSRDetector:
             )
         return candidates
 
+    def detect_raw_candidates(
+        self,
+        signal: np.ndarray,
+        period: Optional[float] = None,
+        period_map: Optional[np.ndarray] = None,
+        active_mask: Optional[np.ndarray] = None,
+        channel: Optional[str] = None,
+        debug: bool = False,
+    ) -> list[CrashCandidate]:
+        """Return thresholded POSR peaks without physics filters or period NMS.
+
+        This entry point is intended for feature-ML proposal generation.  Peak
+        extraction still needs the POSR threshold and a small fixed separation,
+        but the sawtooth mask, physics-score threshold, jump threshold and
+        period-based suppression are deliberately left to the downstream model.
+        The regular algorithmic detector continues to use ``detect_candidates``.
+        """
+
+        del active_mask  # A reference-channel mask must not gate ML proposals.
+        x = np.asarray(signal, dtype=float)
+        if len(x) < 100:
+            self.last_candidates = []
+            return []
+
+        result = self.core.transform(x)
+        response = np.asarray(result.signed_response, dtype=float)
+        self.last_response = response
+        weights = self.compute_posr_weights(response, period=period)
+
+        eligible = weights.copy()
+        margin_samples = max(0, int(round(self.edge_margin / self.dt)))
+        if margin_samples > 0 and len(eligible) > 2 * margin_samples:
+            eligible[:margin_samples] = 0.0
+            eligible[-margin_samples:] = 0.0
+        elif margin_samples > 0:
+            eligible[:] = 0.0
+
+        # compute_posr_weights already evaluates local maxima separated by the
+        # fixed 0.15 ms technical peak distance.  Do not add period-based NMS.
+        peaks = np.flatnonzero(eligible >= self.threshold)
+        candidates: list[CrashCandidate] = []
+        for peak in peaks:
+            local_period = self._local_period(int(peak), period, period_map)
+            score, direction, meta = score_crash_candidate(
+                x,
+                int(peak),
+                self.dt,
+                period=local_period,
+            )
+            meta = dict(meta)
+            meta.update(
+                {
+                    "raw_posr": True,
+                    "posr_weight": float(weights[peak]),
+                    "wavelet_response": float(response[peak]),
+                    "response_scale": int(result.response_scale),
+                }
+            )
+            candidates.append(
+                CrashCandidate(
+                    index=int(peak),
+                    time=int(peak) * self.dt,
+                    score=float(score + 0.25 * weights[peak]),
+                    direction=direction,
+                    channel=channel,
+                    method="wavelet_posr_raw",
+                    meta=meta,
+                )
+            )
+
+        self.last_candidates = candidates
+        if debug:
+            print(
+                f"[Wavelet/POSR:raw] channel={channel}, "
+                f"peaks={len(candidates)}, threshold={self.threshold}, "
+                "physics_filter=disabled, period_nms=disabled"
+            )
+        return candidates
+
     def detect(
         self,
         signal: np.ndarray,
@@ -215,5 +294,4 @@ class WaveletPOSRDetector:
                 debug=debug,
             )
         )
-
 

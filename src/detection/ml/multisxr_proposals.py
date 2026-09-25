@@ -33,9 +33,14 @@ def collect_multisxr_candidates(
     period_map = (
         None if prepared.period_map is None else prepared.period_map[::downsample]
     )
+    plateau_mask = getattr(prepared, "plasma_plateau_mask", None)
+    plateau_mask_ds = (
+        None if plateau_mask is None else np.asarray(plateau_mask, dtype=bool)[::downsample]
+    )
 
     raw_candidates: list[CrashCandidate] = []
     source_counts = Counter()
+    rejected_before_plateau = 0
     for channel_name in ordered_channels:
         signal = prepared.channel_signals.get(channel_name)
         if signal is None:
@@ -54,6 +59,11 @@ def collect_multisxr_candidates(
         )
         for candidate in proposals:
             index = int(candidate.index)
+            if plateau_mask_ds is not None and (
+                not 0 <= index < len(plateau_mask_ds) or not plateau_mask_ds[index]
+            ):
+                rejected_before_plateau += 1
+                continue
             if 0 <= index * downsample < len(prepared.time_plasma):
                 candidate.channel = channel_name
                 raw_candidates.append(candidate)
@@ -126,6 +136,7 @@ def collect_multisxr_candidates(
     if debug:
         print(
             f"[MultiSXR] raw={len(raw_candidates)}, merged={len(merged)}, "
+            f"rejected_before_plateau={rejected_before_plateau}, "
             f"sources={dict(source_counts)}"
         )
     return sorted(merged, key=lambda candidate: candidate.index)

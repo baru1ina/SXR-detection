@@ -3,9 +3,7 @@ from datetime import datetime
 from typing import Callable, Dict, List, Optional, Tuple
 
 from config.path import (
-    DEFAULT_CANDIDATES_PATH,
-    DEFAULT_FEATURES_PATH,
-    DEFAULT_METRICS_PATH,
+    DEFAULT_EXPERT_LABELS_PATH,
     DEFAULT_MODEL_PATH,
     DEFAULT_PSEUDO_LABELS_PATH,
     SXR_CHANNELS,
@@ -52,18 +50,20 @@ def main(
     posr_score_threshold: float = 2.5,
     model_path: Optional[str] = None,
     probability_threshold: Optional[float] = None,
-    ml_proposal_sigma: Optional[float] = None,
     ml_proposal_threshold: float = 3.0,
-    ml_proposal_score_threshold: float = 0.5,
     ml_proposal_coincidence_window: float = 0.15e-3,
-    ml_use_cpd: bool = True,
+    ml_proposal_source: str = "posr",
     ml_cpd_penalty: float = 3.0,
     ml_cpd_model: str = "rbf",
     pseudo_labels_path: str = DEFAULT_PSEUDO_LABELS_PATH,
-    candidates_output: str = DEFAULT_CANDIDATES_PATH,
-    features_output: str = DEFAULT_FEATURES_PATH,
-    metrics_output: str = DEFAULT_METRICS_PATH,
+    expert_labels_path: Optional[str] = DEFAULT_EXPERT_LABELS_PATH,
+    candidates_output: Optional[str] = None,
+    features_output: Optional[str] = None,
+    metrics_output: Optional[str] = None,
     ml_backend: str = "sklearn_hgb",
+    ml_feature_profile: str = "full",
+    ml_plateau_level_fraction: float = 0.8,
+    ml_plateau_hold: float = 0.5e-3,
     random_state: int = 42,
     wavelet_use_local_period_nms=True,
 ):
@@ -84,20 +84,23 @@ def main(
             train_feature_ml_from_pseudo_labels(
                 logger=logger,
                 pseudo_labels_path=pseudo_labels_path,
+                expert_labels_path=expert_labels_path,
                 source_dir=source_dir,
                 candidates_output=candidates_output,
                 features_output=features_output,
-                model_output=model_path or DEFAULT_MODEL_PATH,
+                model_output=model_path,
                 metrics_output=metrics_output,
                 backend=ml_backend,
                 random_state=random_state,
                 downsample=downsample,
                 posr_threshold=ml_proposal_threshold,
-                posr_score_threshold=ml_proposal_score_threshold,
-                use_cpd=ml_use_cpd,
+                proposal_source=ml_proposal_source,
                 cpd_penalty=ml_cpd_penalty,
                 cpd_model=ml_cpd_model,
                 proposal_coincidence_window_s=ml_proposal_coincidence_window,
+                feature_profile=ml_feature_profile,
+                plateau_level_fraction=ml_plateau_level_fraction,
+                plateau_hold_s=ml_plateau_hold,
                 debug=debug,
             )
             return
@@ -196,17 +199,8 @@ def main(
                     **common_kwargs,
                     model_path=model_path,
                     probability_threshold=probability_threshold,
-                    proposal_sigma=ml_proposal_sigma,
-                    proposal_threshold=ml_proposal_threshold,
-                    proposal_score_threshold=ml_proposal_score_threshold,
-                    use_cpd=ml_use_cpd,
-                    cpd_penalty=ml_cpd_penalty,
-                    cpd_model=ml_cpd_model,
-                    downsample=downsample,
                     multichannel=multichannel,
-                    channels=channels,
                     min_channels=min_channels,
-                    coincidence_window=ml_proposal_coincidence_window,
                     plot=plot,
                     debug=debug,
                 )
@@ -266,29 +260,37 @@ def parse_cli_args():
     parser.add_argument("--posr_score_threshold", type=float, default=2.5)
 
 
-    parser.add_argument("--model_path", default=None, help=f"Feature-ML model path (default: {DEFAULT_MODEL_PATH})")
+    parser.add_argument(
+        "--model_path",
+        default=None,
+        help=f"Feature-ML model path; detection defaults to {DEFAULT_MODEL_PATH}",
+    )
     parser.add_argument(
         "--probability_threshold",
         type=float,
         default=None,
         help="ML threshold; by default use the value saved with the model",
     )
-    parser.add_argument("--ml_proposal_sigma", type=float, default=None)
-    parser.add_argument("--ml_proposal_threshold", type=float, default=3.0)
-    parser.add_argument("--ml_proposal_score_threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--ml_proposal_threshold",
+        type=float,
+        default=3.0,
+        help="Training-only raw POSR proposal threshold",
+    )
     parser.add_argument(
         "--ml_proposal_coincidence_window",
         type=float,
         default=0.15e-3,
-        help="Window for merging SXR ML proposals in seconds",
+        help="Training-only window for merging SXR ML proposals in seconds",
     )
     parser.add_argument(
-        "--ml_no_cpd",
-        action="store_true",
-        help="Disable raw CPD proposals for feature_ml",
+        "--ml_proposal_source",
+        choices=("posr", "cpd", "hybrid"),
+        default="posr",
+        help="Training-only raw proposal generator used by feature_ml",
     )
-    parser.add_argument("--ml_cpd_penalty", type=float, default=3.0)
-    parser.add_argument("--ml_cpd_model", default="rbf")
+    parser.add_argument("--ml_cpd_penalty", type=float, default=3.0, help="Training-only")
+    parser.add_argument("--ml_cpd_model", default="rbf", help="Training-only")
 
     parser.add_argument(
         "--pseudo_labels_path",
@@ -296,15 +298,47 @@ def parse_cli_args():
         help="Wavelet pseudo-label JSON used by feature_ml training",
     )
     parser.add_argument(
-        "--candidates_output",
-        default=DEFAULT_CANDIDATES_PATH,
+        "--expert_labels_path",
+        default=DEFAULT_EXPERT_LABELS_PATH,
+        help=(
+            "Expert event JSON. Expert labels override wavelet labels only in "
+            "explicitly reviewed intervals"
+        ),
     )
-    parser.add_argument("--features_output", default=DEFAULT_FEATURES_PATH)
+    parser.add_argument(
+        "--candidates_output",
+        default=None,
+        help="Training output; default name includes the proposal source",
+    )
+    parser.add_argument(
+        "--features_output",
+        default=None,
+        help="Training output; default name includes the proposal source",
+    )
     parser.add_argument(
         "--metrics_output",
-        default=DEFAULT_METRICS_PATH,
+        default=None,
+        help="Training output; default name includes the proposal source",
     )
     parser.add_argument("--ml_backend", default="sklearn_hgb")
+    parser.add_argument(
+        "--ml_feature_profile",
+        choices=("reference_sxr", "core_diagnostics", "full"),
+        default="full",
+        help="Training-only feature map; detection reads it from the model",
+    )
+    parser.add_argument(
+        "--ml_plateau_level_fraction",
+        type=float,
+        default=0.8,
+        help="Training-only current fraction that opens the startup gate",
+    )
+    parser.add_argument(
+        "--ml_plateau_hold",
+        type=float,
+        default=0.5e-3,
+        help="Training-only time the current must remain above the plateau threshold",
+    )
     parser.add_argument("--random_state", type=int, default=42)
 
     args = parser.parse_args()
@@ -349,18 +383,20 @@ if __name__ == "__main__":
             posr_score_threshold=args.posr_score_threshold,
             model_path=args.model_path,
             probability_threshold=args.probability_threshold,
-            ml_proposal_sigma=args.ml_proposal_sigma,
             ml_proposal_threshold=args.ml_proposal_threshold,
-            ml_proposal_score_threshold=args.ml_proposal_score_threshold,
             ml_proposal_coincidence_window=args.ml_proposal_coincidence_window,
-            ml_use_cpd=not args.ml_no_cpd,
+            ml_proposal_source=args.ml_proposal_source,
             ml_cpd_penalty=args.ml_cpd_penalty,
             ml_cpd_model=args.ml_cpd_model,
             pseudo_labels_path=args.pseudo_labels_path,
+            expert_labels_path=args.expert_labels_path,
             candidates_output=args.candidates_output,
             features_output=args.features_output,
             metrics_output=args.metrics_output,
             ml_backend=args.ml_backend,
+            ml_feature_profile=args.ml_feature_profile,
+            ml_plateau_level_fraction=args.ml_plateau_level_fraction,
+            ml_plateau_hold=args.ml_plateau_hold,
             random_state=args.random_state,
         )
     else:
@@ -398,6 +434,7 @@ if __name__ == "__main__":
         # ]
 
 
+
         import os
         test_files_channels = []
         for file in os.listdir("data/raw/random"):
@@ -406,15 +443,12 @@ if __name__ == "__main__":
         # wt_thresholds = [2.0, 2.0]
         # wt_thresholds = [1, 3]
 
-        #TODO: сделать так, чтобы учитывалась периодическая структура.
-        # Т.е. если на участке/в сигнале всего 1 срыв, то это не пила (!)
-
         # main(mode="detect", files_channels=test_files_channels, log_to_file=True)
 
         # main(
         #     mode="detect",
         #     # source_dir=DEFAULT_SOURCE_DIR,
-        #     source_dir="data/raw/random",
+        #     source_dir="data/raw/test1",
         #     # method="cpd",
         #     # method="cpd_features",
         #     # method="wavelet_posr",
@@ -433,107 +467,27 @@ if __name__ == "__main__":
         #     method="feature_ml",
         #     ml_backend="catboost"
         # )
-
+        #
         main(
             mode="detect",
             source_dir="data/raw/random",
             method="feature_ml",
-            model_path=DEFAULT_MODEL_PATH,
+            model_path="data/model_data/feature_ml_posr_sklearn_hgb_full.joblib",
             files_channels=test_files_channels,
         )
 
         # main(
         #     mode="detect",
-        #     # method="cpd",
-        #     # method="cpd_features",
-        #     # method="wavelet_posr",
+        #     source_dir="data/raw/test1",
+        #     method="feature_ml",
+        #     model_path="data/model_data/feature_ml_posr_sklearn_hgb_core_diagnostics.joblib",
         #     files_channels=test_files_channels,
-        #     # wt_thresholds=wt_thresholds,
-        #     multichannel=False,
-        #     # multichannel=True,
-        #     # channels=SXR_CHANNELS,
-        #     debug=True,
-        #     # wavelet_name="mexh"
-        # )
-        #
-        # main(
-        #     mode="detect",
-        #     # method="cpd",
-        #     method="cpd_features",
-        #     # method="wavelet_posr",
-        #     files_channels=test_files_channels,
-        #     # wt_thresholds=wt_thresholds,
-        #     multichannel=False,
-        #     # multichannel=True,
-        #     # channels=SXR_CHANNELS,
-        #     debug=True,
-        #     # wavelet_name="mexh"
-        # )
-        #
-        # main(
-        #     mode="detect",
-        #     # method="cpd",
-        #     # method="cpd_features",
-        #     method="wavelet_posr",
-        #     files_channels=test_files_channels,
-        #     # wt_thresholds=wt_thresholds,
-        #     multichannel=False,
-        #     # multichannel=True,
-        #     # channels=SXR_CHANNELS,
-        #     debug=True,
-        #     # wavelet_name="mexh"
         # )
 
         # main(
         #     mode="detect",
-        #     # method="cpd",
-        #     # method="cpd_features",
-        #     # method="wavelet_posr",
+        #     source_dir="data/raw/test1",
+        #     method="feature_ml",
+        #     model_path="data/model_data/feature_ml_posr_sklearn_hgb_reference_sxr.joblib",
         #     files_channels=test_files_channels,
-        #     # wt_thresholds=wt_thresholds,
-        #     # multichannel=False,
-        #     multichannel=True,
-        #     channels=SXR_CHANNELS,
-        #     debug=True,
-        #     # wavelet_name="gaus1",
         # )
-        #
-        # main(
-        #     mode="detect",
-        #     # method="cpd",
-        #     # method="cpd_features",
-        #     method="wavelet_posr",
-        #     files_channels=test_files_channels,
-        #     wt_thresholds=wt_thresholds,
-        #     multichannel=False,
-        #     debug=True
-        # )
-        #
-        # main(
-        #     mode="detect",
-        #     method="cpd",
-        #     # method="cpd_features",
-        #     # method="wavelet_posr",
-        #     files_channels=test_files_channels,
-        #     multichannel=False,
-        #     debug=True
-        # )
-        #
-        # main(
-        #     mode="detect",
-        #     # method="cpd",
-        #     method="cpd_features",
-        #     # method="wavelet_posr",
-        #     files_channels=test_files_channels,
-        #     multichannel=False,
-        #     debug=True
-        # )
-
-
-  # .venv/bin/python main.py --mode train --method feature_ml \
-  #   --source_dir data/raw \
-  #   --pseudo_labels_path data/dataset/wavelet_pseudo_labels_expanded.json \
-  #   --candidates_output data/dataset/feature_ml_candidates_expanded.json \
-  #   --features_output data/dataset/feature_candidates_expanded.npz \
-  #   --metrics_output data/model_data/feature_ml_metrics_expanded.json \
-  #   --model_path data/model_data/feature_ml_expanded.joblib

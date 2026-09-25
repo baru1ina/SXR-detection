@@ -1,0 +1,1047 @@
+{
+  "schema_version": 2,
+  "shots": [
+    {
+      "shot_id": "sht38296",
+      "relative_path": "hard/sht38296.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.17298000000000002,
+          0.17318
+        ],
+        [
+          0.1739,
+          0.17409999999999998
+        ],
+        [
+          0.1741,
+          0.17429999999999998
+        ],
+        [
+          0.1749,
+          0.17509999999999998
+        ],
+        [
+          0.17520000000000002,
+          0.1754
+        ],
+        [
+          0.1759,
+          0.17609999999999998
+        ],
+        [
+          0.17620000000000002,
+          0.1764
+        ],
+        [
+          0.1769,
+          0.17709999999999998
+        ],
+        [
+          0.1773,
+          0.1775
+        ],
+        [
+          0.1789,
+          0.17909999999999998
+        ],
+        [
+          0.1799,
+          0.1805
+        ],
+        [
+          0.1817,
+          0.1823
+        ],
+        [
+          0.18280000000000002,
+          0.1834
+        ],
+        [
+          0.1841,
+          0.1847
+        ],
+        [
+          0.18679,
+          0.1882
+        ],
+        [
+          0.1885,
+          0.1897
+        ],
+        [
+          0.1903,
+          0.1905
+        ],
+        [
+          0.1908,
+          0.1914
+        ],
+        [
+          0.1918,
+          0.1924
+        ],
+        [
+          0.1925,
+          0.1931
+        ],
+        [
+          0.1935,
+          0.1941
+        ],
+        [
+          0.19440000000000002,
+          0.195
+        ],
+        [
+          0.1965,
+          0.1971
+        ],
+        [
+          0.19798000000000002,
+          0.19858
+        ],
+        [
+          0.19906000000000001,
+          0.19966
+        ],
+        [
+          0.200175,
+          0.20077499999999998
+        ],
+        [
+          0.20109000000000002,
+          0.20228
+        ],
+        [
+          0.2026,
+          0.2032
+        ],
+        [
+          0.2037,
+          0.20429999999999998
+        ],
+        [
+          0.2047,
+          0.20529999999999998
+        ],
+        [
+          0.2059,
+          0.2065
+        ],
+        [
+          0.2073,
+          0.2079
+        ],
+        [
+          0.2087,
+          0.20929999999999999
+        ],
+        [
+          0.21,
+          0.21059999999999998
+        ],
+        [
+          0.2115,
+          0.21209999999999998
+        ],
+        [
+          0.2136,
+          0.2142
+        ],
+        [
+          0.21530000000000002,
+          0.2159
+        ],
+        [
+          0.2163,
+          0.21689999999999998
+        ],
+        [
+          0.218,
+          0.2186
+        ],
+        [
+          0.2195,
+          0.2201
+        ],
+        [
+          0.22109,
+          0.22169
+        ],
+        [
+          0.22240000000000001,
+          0.223
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.17308,
+          "label": "sawtooth",
+          "tolerance_s": 0.0001,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1742,
+          "label": "sawtooth",
+          "tolerance_s": 0.0001,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1753,
+          "label": "sawtooth",
+          "tolerance_s": 0.0001,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1763,
+          "label": "sawtooth",
+          "tolerance_s": 0.0001,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1774,
+          "label": "sawtooth",
+          "tolerance_s": 0.0001,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.179,
+          "label": "sawtooth",
+          "tolerance_s": 0.0001,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1802,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.182,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1831,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1844,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.18709,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.18735,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1879,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.18889,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1894,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1904,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1921,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1928,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1938,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1947,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.19828,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.19936,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.200475,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2017,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2029,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.204,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.205,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2062,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2076,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.209,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2103,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2118,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2139,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2156,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2166,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2183,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2198,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.22139,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2227,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм"
+          ],
+          "note": ""
+        }
+      ],
+      "note": "Адекватная пила с сильным зашкалом в самом начале, потом резкое фоновое повышение с последующим фоновым спадом, на спаде пила присутствует; 50 и 80 - слишком сильный зашкал"
+    },
+    {
+      "shot_id": "sht38818",
+      "relative_path": "hard/sht38818.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.20352,
+          0.20412
+        ],
+        [
+          0.20587,
+          0.20647
+        ],
+        [
+          0.2079,
+          0.2085
+        ],
+        [
+          0.21,
+          0.21059999999999998
+        ],
+        [
+          0.21180000000000002,
+          0.2124
+        ],
+        [
+          0.2135,
+          0.21409999999999998
+        ],
+        [
+          0.21610000000000001,
+          0.2167
+        ],
+        [
+          0.2178,
+          0.21839999999999998
+        ],
+        [
+          0.21910000000000002,
+          0.2197
+        ],
+        [
+          0.22177,
+          0.22236999999999998
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.20382,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20617,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2082,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2103,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2121,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2138,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2164,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2181,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2181,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2194,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.22207,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 27 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht43770",
+      "relative_path": "hard/sht43770.SHT",
+      "review_status": "partial",
+      "shot_label": "uncertain",
+      "reviewed_intervals_s": [
+        [
+          0.143912,
+          0.144512
+        ],
+        [
+          0.146142,
+          0.14674199999999998
+        ],
+        [
+          0.151432,
+          0.152032
+        ],
+        [
+          0.153062,
+          0.153662
+        ],
+        [
+          0.162012,
+          0.16261199999999998
+        ],
+        [
+          0.171842,
+          0.17244199999999998
+        ],
+        [
+          0.173782,
+          0.17438199999999998
+        ],
+        [
+          0.185382,
+          0.18598199999999998
+        ],
+        [
+          0.191582,
+          0.192182
+        ],
+        [
+          0.195512,
+          0.19611199999999998
+        ],
+        [
+          0.197112,
+          0.197712
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.144212,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.146442,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.151732,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.153362,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16231199999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.172142,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.174082,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 15 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.18568199999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.191882,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.19581199999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.197412,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    }
+  ]
+}

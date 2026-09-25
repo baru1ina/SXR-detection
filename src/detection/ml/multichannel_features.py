@@ -233,7 +233,7 @@ def _channel_features(
 class MultichannelFeatureBuilder:
     """Build one deterministic ML vector for a candidate on the plasma grid."""
 
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 5
 
     def __init__(
         self,
@@ -241,6 +241,8 @@ class MultichannelFeatureBuilder:
         window_config: Optional[FeatureWindowConfig] = None,
     ):
         self.profile = profile
+        self.include_multisxr = profile.name != "reference_sxr"
+        self.include_proposals = profile.name != "reference_sxr"
         self.window_config = window_config or FeatureWindowConfig()
         self.schema = FeatureSchema(
             schema_version=self.SCHEMA_VERSION,
@@ -251,8 +253,12 @@ class MultichannelFeatureBuilder:
 
     def _feature_names(self) -> tuple[str, ...]:
         names = [f"sxr__{name}" for name in SINGLE_CHANNEL_FEATURE_NAMES]
-        for channel in SXR_CHANNELS:
-            names.extend(f"sxr_channel__{channel}__{feature}" for feature in _SXR_FEATURE_NAMES)
+        if self.include_multisxr:
+            for channel in SXR_CHANNELS:
+                names.extend(
+                    f"sxr_channel__{channel}__{feature}"
+                    for feature in _SXR_FEATURE_NAMES
+                )
         for channel in self.profile.channels:
             names.extend(
                 f"channel__{channel.key}__{feature}"
@@ -263,7 +269,8 @@ class MultichannelFeatureBuilder:
                 f"group__{group}__{feature}"
                 for feature in _GROUP_FEATURE_NAMES
             )
-        names.extend(f"proposal__{name}" for name in _PROPOSAL_FEATURE_NAMES)
+        if self.include_proposals:
+            names.extend(f"proposal__{name}" for name in _PROPOSAL_FEATURE_NAMES)
         return tuple(names)
 
     def build(
@@ -274,7 +281,7 @@ class MultichannelFeatureBuilder:
         standardized_channels: Optional[dict[str, np.ndarray]] = None,
         proposal_evidence: Optional[dict[str, Any]] = None,
     ) -> np.ndarray:
-        if prepared.aligned_signals is None:
+        if self.profile.channels and prepared.aligned_signals is None:
             raise ValueError("PreparedShot does not contain aligned diagnostic signals")
         if prepared.feature_profile != self.profile.name:
             raise ValueError(
@@ -284,7 +291,7 @@ class MultichannelFeatureBuilder:
 
         reference = np.asarray(prepared.reference_signal, dtype=float)
         aligned = prepared.aligned_signals
-        if aligned.time.shape != reference.shape:
+        if aligned is not None and aligned.time.shape != reference.shape:
             raise ValueError("Reference signal and aligned diagnostics length mismatch")
 
         index = int(candidate_index)
@@ -323,61 +330,82 @@ class MultichannelFeatureBuilder:
         methods_by_channel = (
             {} if proposal_evidence is None else proposal_evidence.get("source_channel_methods", {})
         )
-        for channel_name in SXR_CHANNELS:
-            signal = channel_signals.get(channel_name)
-            if signal is None:
-                result.extend([0.0] * 4 + [np.nan] * (len(_SXR_FEATURE_NAMES) - 4))
-                continue
-            values = np.asarray(signal, dtype=float)
-            if values.shape != reference.shape:
-                raise ValueError(f"SXR channel {channel_name!r} length mismatch")
-            valid = np.isfinite(values)
-            standardized = (
-                None
-                if standardized_channels is None
-                else standardized_channels.get(channel_name)
-            )
-            if standardized is None:
-                standardized = _robust_standardize(values, valid)
-            features = _channel_features(
-                values,
-                valid,
-                index=index,
-                radius=radius,
-                dt=dt,
-                period=effective_period,
-                min_valid_samples=self.window_config.min_valid_samples,
-                standardized=standardized,
-            )
-            pre = standardized[max(0, index - radius):index]
-            post = standardized[index:min(len(values), index + radius)]
-            differences = np.concatenate((np.diff(pre), np.diff(post)))
-            differences = differences[np.isfinite(differences)]
-            local_noise = (
-                float(1.4826 * np.median(np.abs(differences - np.median(differences))))
-                if len(differences)
-                else np.nan
-            )
-            jump_to_noise = (
-                float(np.log1p(abs(features.median_delta_z) / (local_noise + _EPS)))
-                if np.isfinite(local_noise) and np.isfinite(features.median_delta_z)
-                else np.nan
-            )
-            result.extend(
-                [
-                    1.0,
-                    float(channel_name in proposed_channels),
-                    float(any("posr" in method.lower() for method in methods_by_channel.get(channel_name, ()))),
-                    float(any("cpd" in method.lower() for method in methods_by_channel.get(channel_name, ()))),
-                    features.median_delta_z,
-                    features.signed_jump_z,
-                    features.log_energy_ratio,
-                    features.max_abs_period_slope,
-                    features.change_offset_period,
-                    local_noise,
-                    jump_to_noise,
-                ]
-            )
+        if self.include_multisxr:
+            for channel_name in SXR_CHANNELS:
+                signal = channel_signals.get(channel_name)
+                if signal is None:
+                    result.extend(
+                        [0.0] * 4 + [np.nan] * (len(_SXR_FEATURE_NAMES) - 4)
+                    )
+                    continue
+                values = np.asarray(signal, dtype=float)
+                if values.shape != reference.shape:
+                    raise ValueError(f"SXR channel {channel_name!r} length mismatch")
+                valid = np.isfinite(values)
+                standardized = (
+                    None
+                    if standardized_channels is None
+                    else standardized_channels.get(channel_name)
+                )
+                if standardized is None:
+                    standardized = _robust_standardize(values, valid)
+                features = _channel_features(
+                    values,
+                    valid,
+                    index=index,
+                    radius=radius,
+                    dt=dt,
+                    period=effective_period,
+                    min_valid_samples=self.window_config.min_valid_samples,
+                    standardized=standardized,
+                )
+                pre = standardized[max(0, index - radius):index]
+                post = standardized[index:min(len(values), index + radius)]
+                differences = np.concatenate((np.diff(pre), np.diff(post)))
+                differences = differences[np.isfinite(differences)]
+                local_noise = (
+                    float(
+                        1.4826
+                        * np.median(np.abs(differences - np.median(differences)))
+                    )
+                    if len(differences)
+                    else np.nan
+                )
+                jump_to_noise = (
+                    float(
+                        np.log1p(
+                            abs(features.median_delta_z) / (local_noise + _EPS)
+                        )
+                    )
+                    if np.isfinite(local_noise)
+                    and np.isfinite(features.median_delta_z)
+                    else np.nan
+                )
+                result.extend(
+                    [
+                        1.0,
+                        float(channel_name in proposed_channels),
+                        float(
+                            any(
+                                "posr" in method.lower()
+                                for method in methods_by_channel.get(channel_name, ())
+                            )
+                        ),
+                        float(
+                            any(
+                                "cpd" in method.lower()
+                                for method in methods_by_channel.get(channel_name, ())
+                            )
+                        ),
+                        features.median_delta_z,
+                        features.signed_jump_z,
+                        features.log_energy_ratio,
+                        features.max_abs_period_slope,
+                        features.change_offset_period,
+                        local_noise,
+                        jump_to_noise,
+                    ]
+                )
         features_by_channel: dict[str, _ChannelFeatures] = {}
 
         for diagnostic in self.profile.channels:
@@ -420,9 +448,9 @@ class MultichannelFeatureBuilder:
                 ]
             )
 
-        if proposal_evidence is None:
+        if self.include_proposals and proposal_evidence is None:
             result.extend([np.nan] * len(_PROPOSAL_FEATURE_NAMES))
-        else:
+        elif self.include_proposals:
             scores = np.asarray(proposal_evidence.get("source_scores", []), dtype=float)
             finite_scores = scores[np.isfinite(scores)]
             result.extend(
@@ -452,20 +480,25 @@ class MultichannelFeatureBuilder:
     def prepare_standardized_channels(self, prepared) -> dict[str, np.ndarray]:
         """Compute full-shot robust scales once before evaluating candidates."""
 
-        if prepared.aligned_signals is None:
+        if self.profile.channels and prepared.aligned_signals is None:
             raise ValueError("PreparedShot does not contain aligned diagnostic signals")
-        standardized = {
-            diagnostic.name: _robust_standardize(
-                prepared.aligned_signals.get_channel(diagnostic.name).values,
-                prepared.aligned_signals.get_channel(diagnostic.name).valid_mask,
-            )
-            for diagnostic in self.profile.channels
-        }
-        for channel_name in SXR_CHANNELS:
-            signal = getattr(prepared, "channel_signals", {}).get(channel_name)
-            if signal is not None:
-                values = np.asarray(signal, dtype=float)
-                standardized[channel_name] = _robust_standardize(values, np.isfinite(values))
+        standardized = {}
+        if self.profile.channels:
+            standardized.update({
+                diagnostic.name: _robust_standardize(
+                    prepared.aligned_signals.get_channel(diagnostic.name).values,
+                    prepared.aligned_signals.get_channel(diagnostic.name).valid_mask,
+                )
+                for diagnostic in self.profile.channels
+            })
+        if self.include_multisxr:
+            for channel_name in SXR_CHANNELS:
+                signal = getattr(prepared, "channel_signals", {}).get(channel_name)
+                if signal is not None:
+                    values = np.asarray(signal, dtype=float)
+                    standardized[channel_name] = _robust_standardize(
+                        values, np.isfinite(values)
+                    )
         return standardized
 
     def as_dict(self, vector: np.ndarray) -> dict[str, float]:

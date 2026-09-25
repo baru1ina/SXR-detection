@@ -17,13 +17,10 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from config.channels import MULTICHANNEL_FEATURE_PROFILE
+from config.channels import get_feature_map_profile
 from config.path import (
-    DEFAULT_CANDIDATES_PATH,
-    DEFAULT_FEATURES_PATH,
-    DEFAULT_METRICS_PATH,
-    DEFAULT_MODEL_PATH,
     SXR_CHANNELS,
+    feature_ml_artifact_paths,
 )
 from src.detection.ml.multichannel_features import MultichannelFeatureBuilder
 from src.detection.ml.train.candidate_dataset import (
@@ -42,6 +39,7 @@ class FeatureRows:
     shot_ids: np.ndarray
     categories: np.ndarray
     candidate_times_s: np.ndarray
+    label_sources: np.ndarray
     teacher_event_keys: np.ndarray
     teacher_event_count: int
     teacher_event_counts_by_category: dict[str, int]
@@ -125,6 +123,7 @@ def extract_feature_rows(
     shot_ids: list[str] = []
     categories: list[str] = []
     candidate_times: list[float] = []
+    label_sources: list[str] = []
     teacher_event_keys: list[str] = []
     teacher_event_count = sum(shot.teacher_event_count for shot in shots)
     teacher_event_counts_by_category = dict(
@@ -199,6 +198,7 @@ def extract_feature_rows(
             shot_ids.append(shot.shot_id)
             categories.append(shot.category)
             candidate_times.append(float(candidate.time_s))
+            label_sources.append(str(getattr(candidate, "label_source", "wavelet")))
             teacher_event_keys.append(_teacher_event_key(shot.shot_id, candidate))
 
     if not features:
@@ -210,6 +210,7 @@ def extract_feature_rows(
         shot_ids=np.asarray(shot_ids),
         categories=np.asarray(categories),
         candidate_times_s=np.asarray(candidate_times, dtype=float),
+        label_sources=np.asarray(label_sources),
         teacher_event_keys=np.asarray(teacher_event_keys),
         teacher_event_count=teacher_event_count,
         teacher_event_counts_by_category=teacher_event_counts_by_category,
@@ -246,6 +247,7 @@ def classification_metrics(
         "samples": int(len(rows.y)),
         "positive_samples": int(np.sum(rows.y == 1)),
         "negative_samples": int(np.sum(rows.y == 0)),
+        "label_sources": dict(sorted(Counter(rows.label_sources).items())),
         "confusion_matrix": {
             "tn": int(tn),
             "fp": int(fp),
@@ -314,6 +316,7 @@ def _metrics_by_category(
             shot_ids=rows.shot_ids[mask],
             categories=rows.categories[mask],
             candidate_times_s=rows.candidate_times_s[mask],
+            label_sources=rows.label_sources[mask],
             teacher_event_keys=rows.teacher_event_keys[mask],
             teacher_event_count=rows.teacher_event_counts_by_category.get(str(category), 0),
             teacher_event_counts_by_category={
@@ -345,6 +348,7 @@ def _metrics_by_shot(
             shot_ids=rows.shot_ids[mask],
             categories=rows.categories[mask],
             candidate_times_s=rows.candidate_times_s[mask],
+            label_sources=rows.label_sources[mask],
             teacher_event_keys=rows.teacher_event_keys[mask],
             teacher_event_count=teacher_event_count,
             teacher_event_counts_by_category={category: teacher_event_count},
@@ -377,11 +381,13 @@ def save_feature_dataset(
         train_shot_ids=train_rows.shot_ids,
         train_categories=train_rows.categories,
         train_candidate_times_s=train_rows.candidate_times_s,
+        train_label_sources=train_rows.label_sources,
         X_validation=validation_rows.X,
         y_validation=validation_rows.y,
         validation_shot_ids=validation_rows.shot_ids,
         validation_categories=validation_rows.categories,
         validation_candidate_times_s=validation_rows.candidate_times_s,
+        validation_label_sources=validation_rows.label_sources,
         feature_names=np.asarray(feature_builder.schema.feature_names),
         feature_schema_version=np.asarray(feature_builder.schema.schema_version),
         feature_profile=np.asarray(feature_builder.schema.profile_name),
@@ -429,6 +435,9 @@ def train_feature_classifier(
 
     report = {
         "schema_version": MODEL_SCHEMA_VERSION,
+        "candidate_dataset_schema_version": dataset.schema_version,
+        "expert_label_schema_version": dataset.expert_label_schema_version,
+        "candidate_dataset_summary": dataset.summary(),
         "backend": backend_name,
         "random_state": random_state,
         "feature_names": list(feature_builder.schema.feature_names),
@@ -455,29 +464,37 @@ def train_feature_classifier(
     return model, train_rows, validation_rows, report
 
 
-def save_model(model, report: dict, output_path: str | Path, effective_dt: float) -> Path:
-    feature_builder = MultichannelFeatureBuilder()
+def save_model(
+    model,
+    report: dict,
+    output_path: str | Path,
+    effective_dt: float,
+    feature_builder: Optional[MultichannelFeatureBuilder] = None,
+) -> Path:
+    feature_builder = feature_builder or MultichannelFeatureBuilder()
     if report.get("feature_schema") != feature_builder.schema.to_dict():
         raise ValueError("Report feature schema does not match the current builder")
     if report.get("schema_version") != MODEL_SCHEMA_VERSION:
-        raise ValueError("Report is not a feature-ML schema v5 report")
+        raise ValueError(
+            f"Report is not a feature-ML schema v{MODEL_SCHEMA_VERSION} report"
+        )
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(
         {
             "schema_version": MODEL_SCHEMA_VERSION,
             "model": model,
+            "feature_map_profile": feature_builder.profile.name,
             "feature_schema": report["feature_schema"],
             "diagnostic_channels": [
-                asdict(channel) for channel in MULTICHANNEL_FEATURE_PROFILE.channels
+                asdict(channel) for channel in feature_builder.profile.channels
             ],
             "downsample": int(report["candidate_config"]["downsample"]),
             "effective_dt_s": float(effective_dt),
             "proposal_config": {
                 "threshold": report["candidate_config"]["threshold"],
-                "score_threshold": report["candidate_config"]["score_threshold"],
                 "min_distance_factor": report["candidate_config"]["min_distance_factor"],
-                "use_cpd": report["candidate_config"]["use_cpd"],
+                "proposal_source": report["candidate_config"]["proposal_source"],
                 "cpd_penalty": report["candidate_config"]["cpd_penalty"],
                 "cpd_model": report["candidate_config"]["cpd_model"],
                 "proposal_channels": list(
@@ -486,6 +503,10 @@ def save_model(model, report: dict, output_path: str | Path, effective_dt: float
                 "coincidence_window_s": report["candidate_config"][
                     "coincidence_window_s"
                 ],
+                "plateau_level_fraction": report["candidate_config"][
+                    "plateau_level_fraction"
+                ],
+                "plateau_hold_s": report["candidate_config"]["plateau_hold_s"],
             },
             "selected_threshold": float(report["selected_threshold"]),
             "backend": report["backend"],
@@ -508,32 +529,77 @@ def save_report(report: dict, output_path: str | Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Train the feature-ML candidate classifier")
-    parser.add_argument("--candidates", default=DEFAULT_CANDIDATES_PATH)
-    parser.add_argument("--model-output", default=DEFAULT_MODEL_PATH)
-    parser.add_argument("--features-output", default=DEFAULT_FEATURES_PATH)
-    parser.add_argument("--report-output", default=DEFAULT_METRICS_PATH)
+    parser.add_argument(
+        "--proposal-source",
+        choices=("posr", "cpd", "hybrid"),
+        default="posr",
+        help="Selects source-specific default artifact names",
+    )
+    parser.add_argument("--candidates", default=None)
+    parser.add_argument("--model-output", default=None)
+    parser.add_argument("--features-output", default=None)
+    parser.add_argument("--report-output", default=None)
     parser.add_argument("--backend", default="sklearn_hgb")
+    parser.add_argument(
+        "--feature-profile",
+        choices=("reference_sxr", "core_diagnostics", "full"),
+        default="full",
+    )
     parser.add_argument("--random-state", type=int, default=42)
     args = parser.parse_args()
 
     from src.logger import setup_logger
 
     logger = setup_logger(log_to_file=False)
-    dataset = load_candidate_dataset(args.candidates)
+    artifact_paths = feature_ml_artifact_paths(
+        args.proposal_source,
+        args.backend,
+        args.feature_profile,
+    )
+    candidates_path = args.candidates or artifact_paths["candidates"]
+    features_output = args.features_output or artifact_paths["features"]
+    dataset = load_candidate_dataset(candidates_path)
+    if dataset.config.proposal_source != args.proposal_source:
+        raise ValueError(
+            f"Candidate dataset uses {dataset.config.proposal_source!r} proposals, "
+            f"but --proposal-source is {args.proposal_source!r}"
+        )
+    feature_builder = MultichannelFeatureBuilder(
+        get_feature_map_profile(args.feature_profile)
+    )
     model, train_rows, validation_rows, report = train_feature_classifier(
         dataset,
         logger=logger,
         backend=args.backend,
         random_state=args.random_state,
+        feature_builder=feature_builder,
     )
-    features_path = save_feature_dataset(train_rows, validation_rows, args.features_output)
+    model_artifact_paths = feature_ml_artifact_paths(
+        args.proposal_source,
+        report["backend"],
+        args.feature_profile,
+    )
+    model_output = args.model_output or model_artifact_paths["model"]
+    report_output = args.report_output or model_artifact_paths["metrics"]
+    features_path = save_feature_dataset(
+        train_rows,
+        validation_rows,
+        features_output,
+        feature_builder=feature_builder,
+    )
     effective_dt = dataset.config.downsample * next(
         shot.dt_s
         for shot in dataset.train + dataset.validation
         if shot.dt_s is not None
     )
-    model_path = save_model(model, report, args.model_output, effective_dt)
-    report_path = save_report(report, args.report_output)
+    model_path = save_model(
+        model,
+        report,
+        model_output,
+        effective_dt,
+        feature_builder=feature_builder,
+    )
+    report_path = save_report(report, report_output)
 
     logger.info(f"Feature dataset saved to {features_path.resolve()}")
     logger.info(f"Model saved to {model_path.resolve()}")

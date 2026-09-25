@@ -12,7 +12,7 @@ from config.path import DEFAULT_PSEUDO_LABELS_PATH, SXR_CHANNELS
 from src.detection.ml.train.manifest import ShotRecord, ShotSplit, build_shot_manifest, stratified_shot_split
 
 
-PSEUDO_LABEL_SCHEMA_VERSION = 2
+PSEUDO_LABEL_SCHEMA_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -34,6 +34,8 @@ class WaveletLabelConfig:
     raw_peak_distance_s: float = 0.15e-3
     periodic_min_chain_len: int = 3
     periodic_tolerance: float = 0.40
+    plateau_level_fraction: float = 0.8
+    plateau_hold_s: float = 0.5e-3
 
     def __post_init__(self):
         channels = tuple(dict.fromkeys(self.channels))
@@ -47,6 +49,10 @@ class WaveletLabelConfig:
             raise ValueError("coincidence_window_s must be positive and finite")
         if self.seed_period_s <= 0 or not np.isfinite(self.seed_period_s):
             raise ValueError("seed_period_s must be positive and finite")
+        if not 0 < self.plateau_level_fraction < 1:
+            raise ValueError("plateau_level_fraction must be between 0 and 1")
+        if self.plateau_hold_s <= 0 or not np.isfinite(self.plateau_hold_s):
+            raise ValueError("plateau_hold_s must be positive and finite")
         object.__setattr__(self, "channels", channels)
 
 
@@ -182,6 +188,12 @@ def label_prepared_shot(
         )
     dt_effective = float(prepared.dt) * downsample
     raw_candidates = []
+    plateau_mask = getattr(prepared, "plasma_plateau_mask", None)
+    plateau_mask_ds = (
+        None
+        if plateau_mask is None
+        else np.asarray(plateau_mask, dtype=bool)[::downsample]
+    )
     channel_snr = getattr(prepared, "channel_snr", None) or {}
     for channel_name in config.channels:
         signal = prepared.channel_signals.get(channel_name)
@@ -189,16 +201,22 @@ def label_prepared_shot(
         if signal is None or not np.isfinite(snr) or snr < config.min_snr:
             continue
         detector = detector_factory(dt_effective, config.seed_period_s, config)
-        raw_candidates.extend(
-            detector.detect_candidates(
-                np.asarray(signal)[::downsample],
-                period=config.seed_period_s,
-                period_map=None,
-                active_mask=None,
-                channel=channel_name,
-                debug=debug,
-            )
+        channel_candidates = detector.detect_candidates(
+            np.asarray(signal)[::downsample],
+            period=config.seed_period_s,
+            period_map=None,
+            active_mask=None,
+            channel=channel_name,
+            debug=debug,
         )
+        if plateau_mask_ds is not None:
+            channel_candidates = [
+                candidate
+                for candidate in channel_candidates
+                if 0 <= int(candidate.index) < len(plateau_mask_ds)
+                and plateau_mask_ds[int(candidate.index)]
+            ]
+        raw_candidates.extend(channel_candidates)
 
     max_gap = max(1, int(round(config.coincidence_window_s / dt_effective)))
     raw_candidates.sort(key=lambda candidate: candidate.index)
@@ -299,6 +317,9 @@ def _label_records(
                 require_sawtooth=False,
                 minimum_snr=config.min_snr,
                 auto_reference_sxr=True,
+                enable_plasma_plateau_gate=True,
+                plateau_level_fraction=config.plateau_level_fraction,
+                plateau_hold_s=config.plateau_hold_s,
             )
             if prepared is None:
                 labeled.append(_empty_shot(record, config, "skipped_preprocessing"))
@@ -389,6 +410,8 @@ def main() -> None:
     parser.add_argument("--downsample", type=int, default=10)
     parser.add_argument("--validation-ratio", type=float, default=0.2)
     parser.add_argument("--random-state", type=int, default=42)
+    parser.add_argument("--plateau-level-fraction", type=float, default=0.8)
+    parser.add_argument("--plateau-hold-ms", type=float, default=0.5)
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
@@ -410,6 +433,8 @@ def main() -> None:
             channels=tuple(args.channels),
             downsample=args.downsample,
             min_support_channels=args.min_support_channels,
+            plateau_level_fraction=args.plateau_level_fraction,
+            plateau_hold_s=args.plateau_hold_ms * 1e-3,
         ),
         debug=args.debug,
     )
