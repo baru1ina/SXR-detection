@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-import fcntl
+from filelock import FileLock
 
 from src.detection.ml.train.expert_labels import (
     EXPERT_LABEL_SCHEMA_VERSION,
@@ -60,8 +60,7 @@ def upsert_shot_annotation(
     annotation_path = Path(path)
     annotation_path.parent.mkdir(parents=True, exist_ok=True)
     lock_path = annotation_path.with_suffix(annotation_path.suffix + ".lock")
-    with lock_path.open("a+b") as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+    with FileLock(lock_path):
         current = load_annotation_document(annotation_path)
         if expected_revision is not None and current.revision != expected_revision:
             raise AnnotationConflictError(

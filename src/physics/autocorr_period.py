@@ -1,9 +1,7 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.signal import detrend, find_peaks
 
 from config.path import PATH_TO_RES_AUTOCORR
-from matplotlib.widgets import CheckButtons
 
 
 def autocorr_fft(x, *, unbiased=True):

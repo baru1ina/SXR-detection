@@ -1,8 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 from config.path import PATH_TO_RES_AUTOCORR
-from matplotlib.widgets import CheckButtons
 
 from src.physics.autocorr_period import sliding_autocorr_period, autocorr_period, build_period_map, robust_period_from_map, build_saw_activity_mask
 from src.physics.fft import fft_score, fft_score_with_drift

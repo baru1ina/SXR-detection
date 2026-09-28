@@ -19,7 +19,6 @@ from src.preprocessing.plasma_detection import (
     detect_plasma_interval,
     detect_plasma_plateau_mask,
 )
-from src.visualization.plots import plot_with_crashes
 
 
 @dataclass
@@ -345,6 +344,8 @@ def run_single_channel_detector(
     logger.newline()
 
     if plot:
+        from src.visualization.plots import plot_with_crashes
+
         plot_with_crashes(prepared.shot, crash_times, channel_name=prepared.channel_name, mode=mode)
 
     if debug and hasattr(detector, "last_energy") and detector.last_energy is not None:
@@ -425,5 +426,7 @@ def run_multichannel_detector(
     logger.newline()
 
     if plot:
+        from src.visualization.plots import plot_with_crashes
+
         plot_with_crashes(prepared.shot, crash_times, channel_name=prepared.channel_name, mode=mode)
     return crash_times

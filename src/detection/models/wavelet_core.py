@@ -6,8 +6,6 @@ import pywt
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import medfilt
 
-from src.visualization.plots import plot_enhance_crash_energy
-
 
 @dataclass
 class WaveletTransformResult:

@@ -1,11 +1,12 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
 # from src.physics.sawtooth_filter import is_sawtooth
 
 
 def plot_spectrum_with_harmonics(signal, dt, f0):
+    import matplotlib.pyplot as plt
+
     n = len(signal)
 
     fft = np.fft.rfft(signal - np.mean(signal))
@@ -27,6 +28,8 @@ def plot_spectrum_with_harmonics(signal, dt, f0):
     plt.show()
 
 def plot_normalized_spectrum(harmonic_grid, avg_spectrum):
+    import matplotlib.pyplot as plt
+
     plt.figure(figsize=(8, 4))
     plt.plot(harmonic_grid, avg_spectrum, marker='o')
 

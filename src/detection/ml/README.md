@@ -67,6 +67,18 @@ python main.py --mode train --method feature_ml --ml_proposal_source posr --ml_f
 python main.py --mode detect --method feature_ml --file easy/sht46699.SHT --source_dir data/raw
 ```
 
+On Windows PowerShell, run the annotation UI with the virtual environment's
+Python directly:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run src/detection/ml/annotation/app.py
+```
+
+The annotation screen uses Plotly WebGL traces. Select an action above the
+chart and click a signal or a marker on the annotation rail to add a manual
+event or reject an automatic proposal. File search, channels, automatic-label
+calculation, reviewed intervals, and file-level decisions are in the sidebar.
+
 The default artifact paths are defined in `config/path.py`:
 `data/dataset/wavelet_pseudo_labels.json`,
 `data/annotations/expert_events.json`,
