@@ -23,6 +23,7 @@ PATH_TO_RES_TEMP = 'data/process/temp_res'
 # downstream artifacts include it so experimental models cannot be confused.
 DEFAULT_PSEUDO_LABELS_PATH = "data/dataset/wavelet_pseudo_labels.json"
 DEFAULT_EXPERT_LABELS_PATH = "data/annotations/expert_events.json"
+DEFAULT_ANNOTATION_UI_LOG_PATH = "logs/annotation_ui.log"
 FEATURE_ML_PROPOSAL_SOURCES = ("posr", "cpd", "hybrid")
 DEFAULT_FEATURE_ML_PROPOSAL_SOURCE = "posr"
 DEFAULT_FEATURE_ML_BACKEND = "sklearn_hgb"

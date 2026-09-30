@@ -17,8 +17,11 @@
 `annotation/` contains the browser-based expert labeling workflow:
 
 - `app.py` — Streamlit UI for signals, reviewed intervals, and event labels;
-- `backend.py` — shot catalog, multirate signal loading, decimation, and hints;
+- `backend.py` — shot catalog, multirate signal loading, and decimation;
 - `store.py` — validated atomic writes with concurrent-edit detection.
+
+`store.py` is shared unchanged by Windows and Linux and uses the
+cross-platform `filelock` dependency from `requirements-ui.txt`.
 
 `multichannel_features.py` defines the `reference_sxr` (16),
 `core_diagnostics` (154), and `full` (218) schemas used in training and runtime.
@@ -74,10 +77,93 @@ Python directly:
 .\.venv\Scripts\python.exe -m streamlit run src/detection/ml/annotation/app.py
 ```
 
-The annotation screen uses Plotly WebGL traces. Select an action above the
-chart and click a signal or a marker on the annotation rail to add a manual
-event or reject an automatic proposal. File search, channels, automatic-label
-calculation, reviewed intervals, and file-level decisions are in the sidebar.
+The annotation screen uses Plotly WebGL traces. Action buttons and all
+marker/event interaction live in a right-hand workspace. The four action
+buttons embed the PNG assets from `annotation/media` and retain full action
+names as hover tooltips. Their order is add, mark false, select interval, and
+inspect/edit. Free graph clicks
+accumulate in a persistent queue only in add-event and interval modes. Inspect
+responds only to existing teacher/manual markers, while reject responds only to
+teacher markers. Source paths have their own collapsible section in the left
+sidebar. A separate file-navigation section groups file search, category/status
+filters, and the file selector together. The channel
+section uses a case-insensitive name search and a fixed-height scrollable
+alphabetically sorted `st.pills` list. Selection is shown by each pill's
+highlight, without a second summary area. Filtering preserves hidden selected
+channels, and clearing the query restores the complete list.
+Display settings and a collapsible UI log also remain in the left sidebar;
+file-level decisions live in the right workspace.
+The graph-view section mirrors the live Plotly viewport into a two-column X/Y
+bounds grid. X is shared, while Y ranges are retained separately per selected
+channel. A small Streamlit v2 browser listener captures `plotly_relayout` after
+zoom or pan and writes the actual ranges back to session state; this requires
+Streamlit 1.64 or newer. A DOM observer and periodic fallback reattach the
+listener whenever Streamlit replaces or reinitializes the Plotly node.
+Current-crop bounds are also applied as Plotly
+`minallowed`/`maxallowed` constraints. Reset restores the permitted X interval
+and every channel's natural Y range.
+The shot-level `no_sawtooth` decision is selected only through the file-content
+field; there is no second shortcut that mutates the status, intervals, or events.
+The reviewed-interval list is not exposed as a separate editor control. Event
+actions maintain local trusted intervals internally, and selecting a complete
+review records the full signal range automatically.
+A refresh button below the file decision reloads the annotation document and
+catalog, allowing an unannotated-only workflow to advance to the next file
+after saving.
+Annotation-rail markers also draw source-colored vertical lines through every
+signal panel so their intersections with the diagnostics remain visible.
+The marker rail is a taller bottom row with three non-duplicating levels:
+rejected, teacher, and manual events. An
+interval tool uses two graph clicks as boundaries and collects every manual and
+saved teacher marker between them immediately. Its two editable boundary fields
+recompute the selection automatically; there is no separate collect button.
+Signal-row height is adjustable from the sidebar. The figure also reserves a
+48-pixel vertical gap per subplot boundary so channel titles do not overlap,
+without taking that space out of the requested signal-row height.
+The right workspace is a wider bordered panel occupying roughly one third of
+the main area; no width control is placed in the left sidebar. Native Streamlit
+provides only its single left `st.sidebar` and no draggable `st.columns` divider.
+Signal panels use a single axis border without an additional outer rectangle or
+translucent fill. A `Grid` checkbox in the graph-view controls toggles grid lines
+for all signal panels while leaving the annotation rail clear. The larger marker
+legend is separated from the upper signal panel by extra spacing. The marker
+rail has visible bottom and left axes, no mirrored frame, and a horizontal guide
+for each of its three event levels. These guides are independent of the signal
+panel grid toggle.
+Manual events with either `label=uncertain` or `confidence=uncertain` share one
+visual rule in every workflow: a yellow open circle and a yellow dashed line.
+The UI is annotation-only: it does not run raw POSR, raw CPD, feature-ML, model
+training, or candidate regeneration. It displays the already persisted wavelet
+teacher as context. Ordinary clicks on a signal stage times for one batch
+confirmation only in add-event and interval modes. The left sidebar contains files, search,
+filters, channels, display settings, and a collapsible UI log; shot decisions
+and saving are in the right workspace.
+The pending queue is edited through the removal dropdown in the right workspace,
+without a duplicated gray text list, and highlighted in Plotly: existing markers
+get a cyan outline, while selected times get a dashed line
+through all signal panels and a translucent tolerance band. The annotation chart uses a stable
+`uirevision` and a single selection callback, while normal Streamlit widget
+identity ensures updated markers are actually rendered.
+Single-event editing hides the wavelet source/score and exposes only event time
+and reference SXR. Uniform buttons mark an item as a sawtooth, possible
+sawtooth, or false sawtooth. Tolerance is fixed at 0.3 ms, confidence follows
+the chosen action, and wavelet `source_channels` populate channel metadata
+automatically; type, visible-channel, confidence, and comment fields are not
+delegated to the annotator.
+Channel selection, source directory, per-signal height, and current X/Y bounds
+are included in a separate view revision, ensuring those controls rebuild the
+chart when changed. The graph-view section stores the viewport per shot.
+An optional current crop reuses `detect_plasma_interval` with the legacy
+`Ip > 20% * max(Ip)` rule and initializes those bounds to the detected plasma
+interval. Explicit bounds are reapplied after every rerun, providing a stable
+view while annotations change; this display-only crop does not alter labels or
+training data.
+Inspect mode is strictly single-event: every marker click replaces the current
+selection, and even an accumulated Plotly Shift selection is collapsed to one
+new marker. Teacher events expose sawtooth, possible-sawtooth, and false-
+sawtooth actions. Saved manual events expose sawtooth, possible-sawtooth, and
+manual deletion; inapplicable actions remain visible but disabled.
+The obsolete separate click-scale rail has been removed.
 
 The default artifact paths are defined in `config/path.py`:
 `data/dataset/wavelet_pseudo_labels.json`,

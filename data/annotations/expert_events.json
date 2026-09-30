@@ -640,6 +640,120 @@
       "note": "Адекватная пила с сильным зашкалом в самом начале, потом резкое фоновое повышение с последующим фоновым спадом, на спаде пила присутствует; 50 и 80 - слишком сильный зашкал"
     },
     {
+      "shot_id": "sht38811",
+      "relative_path": "hard/sht38811.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.15727,
+          0.15805
+        ],
+        [
+          0.16036,
+          0.16121999999999997
+        ],
+        [
+          0.217943,
+          0.218543
+        ],
+        [
+          0.228023,
+          0.228623
+        ],
+        [
+          0.23152,
+          0.23212
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.15757,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15775,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 27 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16066,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16091999999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 27 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.218243,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.228323,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.23182,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
       "shot_id": "sht38818",
       "relative_path": "hard/sht38818.SHT",
       "review_status": "partial",
@@ -845,6 +959,229 @@
       "note": ""
     },
     {
+      "shot_id": "sht41114",
+      "relative_path": "easy/sht41114.SHT",
+      "review_status": "complete",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.165175,
+          0.16577499999999998
+        ],
+        [
+          0.168815,
+          0.16941499999999998
+        ],
+        [
+          0.174235,
+          0.174835
+        ],
+        [
+          0.175945,
+          0.17654499999999998
+        ],
+        [
+          0.17857499999999998,
+          0.17917499999999997
+        ],
+        [
+          0.180201,
+          0.181245
+        ],
+        [
+          0.181812,
+          0.182412
+        ],
+        [
+          0.24642799999999998,
+          0.24702799999999997
+        ],
+        [
+          0.24986699999999998,
+          0.250467
+        ],
+        [
+          0.250978,
+          0.251578
+        ],
+        [
+          0.25207999999999997,
+          0.25268
+        ],
+        [
+          0.25357199999999996,
+          0.254172
+        ],
+        [
+          0.25499499999999997,
+          0.255595
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.16547499999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.169115,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.174535,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.17624499999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.17887499999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.180501,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.180945,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.182112,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.24672799999999998,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.250167,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.251278,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.25238,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.253872,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.255295,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
       "shot_id": "sht43770",
       "relative_path": "hard/sht43770.SHT",
       "review_status": "partial",
@@ -1036,6 +1373,4144 @@
           "visible_sxr": [
             "SXR 127 мкм",
             "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht43838",
+      "relative_path": "hard/sht43838.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.15062,
+          0.15122
+        ],
+        [
+          0.15221,
+          0.15281
+        ],
+        [
+          0.15478,
+          0.15538
+        ],
+        [
+          0.2188,
+          0.21939999999999998
+        ],
+        [
+          0.22200999999999999,
+          0.22260999999999997
+        ],
+        [
+          0.22614,
+          0.22674
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.15092,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.15251,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.15508,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2191,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.22230999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.22644,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht44335",
+      "relative_path": "hard/sht44335.SHT",
+      "review_status": "partial",
+      "shot_label": "uncertain",
+      "reviewed_intervals_s": [
+        [
+          0.146136,
+          0.14673599999999998
+        ],
+        [
+          0.149306,
+          0.14990599999999998
+        ],
+        [
+          0.150416,
+          0.15120599999999998
+        ],
+        [
+          0.151606,
+          0.15220599999999998
+        ],
+        [
+          0.154786,
+          0.155386
+        ],
+        [
+          0.155706,
+          0.156306
+        ],
+        [
+          0.156446,
+          0.157046
+        ],
+        [
+          0.157716,
+          0.15831599999999998
+        ],
+        [
+          0.158376,
+          0.15897599999999998
+        ],
+        [
+          0.159136,
+          0.159736
+        ],
+        [
+          0.159896,
+          0.160496
+        ],
+        [
+          0.160896,
+          0.161496
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.14643599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.149606,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.150716,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15090599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15190599999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155086,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.156006,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.156746,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.158016,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15867599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.159436,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.160196,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.161196,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht44338",
+      "relative_path": "easy/sht44338.SHT",
+      "review_status": "partial",
+      "shot_label": "uncertain",
+      "reviewed_intervals_s": [
+        [
+          0.151394,
+          0.151994
+        ],
+        [
+          0.176164,
+          0.17676399999999998
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.151694,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.17646399999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht44344",
+      "relative_path": "easy/sht44344.SHT",
+      "review_status": "partial",
+      "shot_label": "uncertain",
+      "reviewed_intervals_s": [
+        [
+          0.147692,
+          0.14829199999999998
+        ],
+        [
+          0.148942,
+          0.14954199999999998
+        ],
+        [
+          0.162342,
+          0.16294199999999998
+        ],
+        [
+          0.164722,
+          0.165322
+        ],
+        [
+          0.167072,
+          0.167672
+        ],
+        [
+          0.167982,
+          0.16858199999999998
+        ],
+        [
+          0.169762,
+          0.17036199999999999
+        ],
+        [
+          0.171912,
+          0.172512
+        ],
+        [
+          0.18407199999999999,
+          0.18467199999999998
+        ],
+        [
+          0.187562,
+          0.188162
+        ],
+        [
+          0.194612,
+          0.195212
+        ],
+        [
+          0.201282,
+          0.20188199999999998
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.14799199999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.14924199999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16264199999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.165022,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.167372,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.168282,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.170062,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.172212,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.18437199999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.187862,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.194912,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.20158199999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht44356",
+      "relative_path": "hard/sht44356.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.142716,
+          0.143706
+        ],
+        [
+          0.144256,
+          0.14485599999999998
+        ],
+        [
+          0.145816,
+          0.146806
+        ],
+        [
+          0.147096,
+          0.14826599999999998
+        ],
+        [
+          0.148676,
+          0.14951599999999998
+        ],
+        [
+          0.149666,
+          0.150556
+        ],
+        [
+          0.150716,
+          0.151526
+        ],
+        [
+          0.151796,
+          0.152586
+        ],
+        [
+          0.153146,
+          0.154936
+        ],
+        [
+          0.154946,
+          0.155716
+        ],
+        [
+          0.156206,
+          0.156806
+        ],
+        [
+          0.157476,
+          0.15825599999999998
+        ],
+        [
+          0.158306,
+          0.158906
+        ],
+        [
+          0.159596,
+          0.160406
+        ],
+        [
+          0.16092599999999999,
+          0.16152599999999998
+        ],
+        [
+          0.161726,
+          0.16339599999999999
+        ],
+        [
+          0.164326,
+          0.164926
+        ],
+        [
+          0.166916,
+          0.167516
+        ],
+        [
+          0.169116,
+          0.16971599999999998
+        ],
+        [
+          0.170076,
+          0.170676
+        ],
+        [
+          0.172456,
+          0.173056
+        ],
+        [
+          0.178506,
+          0.179106
+        ],
+        [
+          0.181136,
+          0.18173599999999998
+        ],
+        [
+          0.183486,
+          0.184086
+        ],
+        [
+          0.184966,
+          0.18556599999999998
+        ],
+        [
+          0.185666,
+          0.186266
+        ],
+        [
+          0.186696,
+          0.187296
+        ],
+        [
+          0.18734599999999998,
+          0.18794599999999997
+        ],
+        [
+          0.188036,
+          0.188636
+        ],
+        [
+          0.189306,
+          0.19031599999999999
+        ],
+        [
+          0.19067599999999998,
+          0.19197599999999998
+        ],
+        [
+          0.192136,
+          0.192736
+        ],
+        [
+          0.192916,
+          0.193906
+        ],
+        [
+          0.19425599999999998,
+          0.19485599999999997
+        ],
+        [
+          0.19500599999999998,
+          0.19560599999999997
+        ],
+        [
+          0.195986,
+          0.19658599999999998
+        ],
+        [
+          0.198276,
+          0.199476
+        ],
+        [
+          0.19983599999999999,
+          0.200876
+        ],
+        [
+          0.200986,
+          0.20204599999999998
+        ],
+        [
+          0.202786,
+          0.20338599999999998
+        ],
+        [
+          0.204126,
+          0.205416
+        ],
+        [
+          0.20749599999999999,
+          0.20809599999999998
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.143016,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.143406,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.144556,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.146116,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.146506,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.147396,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.147966,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.148976,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.149216,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.149966,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.150256,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15101599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.151226,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15209599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.152286,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.153446,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.153606,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.154166,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.154406,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.154636,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155246,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155416,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.156506,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.157776,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15795599999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.158606,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15989599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.160106,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16122599999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.162026,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.162556,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.163096,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.164626,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.167216,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16941599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.170376,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.172756,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.178806,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.181436,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.183786,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.185266,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.185966,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.186996,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.18764599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.188336,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.189606,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.190016,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.19097599999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.191346,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.19167599999999999,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.192436,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.193216,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.193606,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.19455599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.19530599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.196286,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.198576,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.199176,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20013599999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.200576,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.201286,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20174599999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.203086,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.204426,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.204596,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.205116,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20779599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht44359",
+      "relative_path": "hard/sht44359.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.14521,
+          0.14581
+        ],
+        [
+          0.14647,
+          0.14706999999999998
+        ],
+        [
+          0.15204,
+          0.15292
+        ],
+        [
+          0.15370999999999999,
+          0.15430999999999997
+        ],
+        [
+          0.15508,
+          0.15586999999999998
+        ],
+        [
+          0.1559,
+          0.1565
+        ],
+        [
+          0.15675,
+          0.15735
+        ],
+        [
+          0.1576,
+          0.15991999999999998
+        ],
+        [
+          0.16022,
+          0.16185
+        ],
+        [
+          0.16229,
+          0.16288999999999998
+        ],
+        [
+          0.16299,
+          0.16358999999999999
+        ],
+        [
+          0.16398,
+          0.16457999999999998
+        ],
+        [
+          0.16868,
+          0.16927999999999999
+        ],
+        [
+          0.17001,
+          0.17060999999999998
+        ],
+        [
+          0.19601,
+          0.1971
+        ],
+        [
+          0.19721,
+          0.19780999999999999
+        ],
+        [
+          0.19802,
+          0.19862
+        ],
+        [
+          0.20006,
+          0.20065999999999998
+        ],
+        [
+          0.20239,
+          0.20298999999999998
+        ],
+        [
+          0.20335999999999999,
+          0.20418999999999998
+        ],
+        [
+          0.2055,
+          0.20609999999999998
+        ],
+        [
+          0.20635,
+          0.20695
+        ],
+        [
+          0.2071,
+          0.2077
+        ],
+        [
+          0.20804,
+          0.20864
+        ],
+        [
+          0.21066,
+          0.21125999999999998
+        ],
+        [
+          0.21157,
+          0.21217
+        ],
+        [
+          0.21244,
+          0.21303999999999998
+        ],
+        [
+          0.21554,
+          0.21614
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.14551,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.14676999999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15234,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15262,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15400999999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15538,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15556999999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.1562,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15705,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15789999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.15843,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.15893,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.15943,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.15961999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16052,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16061999999999999,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16091999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16113,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16136,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16155,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16258999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16329,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16427999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.16898,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.17031,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.19630999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.1968,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.19751,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.19832,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20035999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20268999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20365999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20389,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20579999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20665,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.2074,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.20834,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.21095999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.21187,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.21273999999999998,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.21584,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht44367",
+      "relative_path": "easy/sht44367.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.149203,
+          0.149803
+        ],
+        [
+          0.155123,
+          0.155723
+        ],
+        [
+          0.189103,
+          0.19022299999999998
+        ],
+        [
+          0.19442299999999998,
+          0.19527299999999997
+        ],
+        [
+          0.224933,
+          0.22553299999999998
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.149503,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155423,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.189403,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.18992299999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.19472299999999998,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.19497299999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.225233,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht44368",
+      "relative_path": "easy/sht44368.SHT",
+      "review_status": "partial",
+      "shot_label": "uncertain",
+      "reviewed_intervals_s": [
+        [
+          0.153705,
+          0.15473499999999998
+        ],
+        [
+          0.154775,
+          0.15620499999999998
+        ],
+        [
+          0.156745,
+          0.15734499999999998
+        ],
+        [
+          0.171755,
+          0.17235499999999998
+        ],
+        [
+          0.186405,
+          0.18700499999999998
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.154005,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.154435,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 15 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155075,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155645,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155905,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.157045,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 15 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.17205499999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.18670499999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht44370",
+      "relative_path": "easy/sht44370.SHT",
+      "review_status": "partial",
+      "shot_label": "uncertain",
+      "reviewed_intervals_s": [
+        [
+          0.194916,
+          0.195516
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.195216,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht45898",
+      "relative_path": "easy/sht45898.SHT",
+      "review_status": "complete",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.0,
+          0.393215
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.162016,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.165433,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.165623,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.166297,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.169313,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 15 мкм",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.22938399999999998,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht46310",
+      "relative_path": "easy/sht46310.SHT",
+      "review_status": "complete",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.0,
+          0.393215
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.148063,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.151806,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.153083,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.156423,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.163883,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.191833,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.19467299999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.212551,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.216823,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht46672",
+      "relative_path": "hard/sht46672.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.151066,
+          0.15209599999999998
+        ],
+        [
+          0.152726,
+          0.15389599999999998
+        ],
+        [
+          0.153976,
+          0.154856
+        ],
+        [
+          0.155226,
+          0.155826
+        ],
+        [
+          0.156376,
+          0.15714599999999998
+        ],
+        [
+          0.157286,
+          0.157886
+        ],
+        [
+          0.158106,
+          0.15914599999999998
+        ],
+        [
+          0.15931599999999999,
+          0.16097599999999998
+        ],
+        [
+          0.161026,
+          0.16227599999999998
+        ],
+        [
+          0.162276,
+          0.162876
+        ],
+        [
+          0.163076,
+          0.163896
+        ],
+        [
+          0.167876,
+          0.168476
+        ],
+        [
+          0.17177599999999998,
+          0.17237599999999997
+        ],
+        [
+          0.173446,
+          0.17404599999999998
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.151366,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.151796,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.153026,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15359599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.154276,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.154276,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.154556,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155526,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15667599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15684599999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.157586,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.158406,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.158846,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.15961599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.160186,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.160386,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16067599999999999,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.161326,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.161666,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16197599999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.162576,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.163376,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.163596,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.168176,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.17207599999999998,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.17374599999999998,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht46682",
+      "relative_path": "hard/sht46682.SHT",
+      "review_status": "partial",
+      "shot_label": "uncertain",
+      "reviewed_intervals_s": [
+        [
+          0.151059,
+          0.151659
+        ],
+        [
+          0.152969,
+          0.15425899999999998
+        ],
+        [
+          0.155109,
+          0.155709
+        ],
+        [
+          0.155849,
+          0.157379
+        ],
+        [
+          0.158499,
+          0.159099
+        ],
+        [
+          0.159589,
+          0.160189
+        ],
+        [
+          0.160519,
+          0.16111899999999998
+        ],
+        [
+          0.161329,
+          0.161929
+        ],
+        [
+          0.161989,
+          0.16258899999999998
+        ],
+        [
+          0.162809,
+          0.163409
+        ],
+        [
+          0.163789,
+          0.16438899999999998
+        ],
+        [
+          0.16444899999999998,
+          0.16504899999999997
+        ],
+        [
+          0.165279,
+          0.165879
+        ],
+        [
+          0.167589,
+          0.16818899999999998
+        ],
+        [
+          0.168519,
+          0.169119
+        ],
+        [
+          0.170429,
+          0.171029
+        ],
+        [
+          0.173899,
+          0.174499
+        ],
+        [
+          0.175249,
+          0.17584899999999998
+        ],
+        [
+          0.176669,
+          0.17726899999999998
+        ],
+        [
+          0.184809,
+          0.185769
+        ],
+        [
+          0.185849,
+          0.18644899999999998
+        ],
+        [
+          0.188469,
+          0.189069
+        ],
+        [
+          0.19139899999999999,
+          0.19199899999999998
+        ],
+        [
+          0.192849,
+          0.19344899999999998
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.151359,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.153269,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.153269,
+          "label": "uncertain",
+          "tolerance_s": 0.0003,
+          "confidence": "uncertain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.153369,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15395899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.155409,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15614899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15667899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.157079,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.158799,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.159889,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.160819,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.161629,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.162289,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.163109,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16408899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16474899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.165579,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16788899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.168819,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.170729,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.174199,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.17554899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.176969,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.185109,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.185469,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.18614899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.188769,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.19169899999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.193149,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht46683",
+      "relative_path": "hard/sht46683.SHT",
+      "review_status": "complete",
+      "shot_label": "uncertain",
+      "reviewed_intervals_s": [
+        [
+          0.15173999999999999,
+          0.15233999999999998
+        ],
+        [
+          0.15253,
+          0.15313
+        ],
+        [
+          0.15379,
+          0.15461999999999998
+        ],
+        [
+          0.15475,
+          0.15535
+        ],
+        [
+          0.15634,
+          0.15694
+        ],
+        [
+          0.1575,
+          0.1581
+        ],
+        [
+          0.15812,
+          0.15872
+        ],
+        [
+          0.159,
+          0.1596
+        ],
+        [
+          0.15965,
+          0.16024999999999998
+        ],
+        [
+          0.16052,
+          0.16151
+        ],
+        [
+          0.16219,
+          0.16335
+        ],
+        [
+          0.16344,
+          0.16404
+        ],
+        [
+          0.16411,
+          0.16493
+        ],
+        [
+          0.16505,
+          0.16565
+        ],
+        [
+          0.1657,
+          0.16629999999999998
+        ],
+        [
+          0.16677,
+          0.16737
+        ],
+        [
+          0.16821,
+          0.16881
+        ],
+        [
+          0.16958,
+          0.17018
+        ],
+        [
+          0.18147,
+          0.18206999999999998
+        ],
+        [
+          0.18553,
+          0.18613
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.15203999999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15283,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15409,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15431999999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15505,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15664,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.1578,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15842,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.1593,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15994999999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16082,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16121,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16249,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16305,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16374,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16441,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16463,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16535,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16599999999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16707,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм",
+            "SXR 50 mkm",
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16851,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16988,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.18177,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.18583,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht46692",
+      "relative_path": "easy/sht46692.SHT",
+      "review_status": "partial",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.152921,
+          0.153521
+        ],
+        [
+          0.157379,
+          0.15797899999999998
+        ],
+        [
+          0.19761499999999999,
+          0.19821499999999997
+        ],
+        [
+          0.19983499999999998,
+          0.20043499999999997
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.153221,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.15767899999999999,
+          "label": "sawtooth",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 50 mkm"
+          ],
+          "note": ""
+        },
+        {
+          "time_s": 0.19791499999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.20013499999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        }
+      ],
+      "note": ""
+    },
+    {
+      "shot_id": "sht46699",
+      "relative_path": "easy/sht46699.SHT",
+      "review_status": "complete",
+      "shot_label": "sawtooth",
+      "reviewed_intervals_s": [
+        [
+          0.0,
+          0.393215
+        ]
+      ],
+      "events": [
+        {
+          "time_s": 0.153448,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.156598,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.15925799999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.160788,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.161318,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 80 mkm"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.161818,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.163028,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16391799999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.164498,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.165268,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.165938,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16735799999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.16824799999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
+          ],
+          "source": "wavelet_teacher",
+          "note": ""
+        },
+        {
+          "time_s": 0.17107799999999998,
+          "label": "false_positive",
+          "tolerance_s": 0.0003,
+          "confidence": "certain",
+          "reference_sxr": "SXR 50 mkm",
+          "visible_sxr": [
+            "SXR 127 мкм"
           ],
           "source": "wavelet_teacher",
           "note": ""

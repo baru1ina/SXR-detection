@@ -1,26 +1,31 @@
+from base64 import b64encode
 from copy import deepcopy
+from hashlib import sha256
+from html import escape
 from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
+from numpy.ma.core import angle, size
 from plotly.subplots import make_subplots
 import streamlit as st
 
 from config.path import (
+    DEFAULT_ANNOTATION_UI_LOG_PATH,
     DEFAULT_EXPERT_LABELS_PATH,
-    DEFAULT_MODEL_PATH,
     DEFAULT_PSEUDO_LABELS_PATH,
+    IP_CHANNEL,
     SXR_CHANNELS,
 )
 from src.detection.ml.annotation.backend import (
     AutomaticSuggestion,
     build_shot_catalog,
-    compute_automatic_suggestions,
     decimate_minmax,
     default_display_channels,
     load_channels,
     merge_reviewed_interval,
 )
+from src.detection.ml.annotation.plot_viewport import render_plot_viewport_listener
 from src.detection.ml.annotation.store import (
     AnnotationConflictError,
     load_annotation_document,
@@ -32,42 +37,43 @@ from src.detection.ml.train.expert_labels import (
 )
 from src.detection.ml.train.pseudo_labels import load_pseudo_labels
 from src.logger import setup_logger
+from src.preprocessing.plasma_detection import detect_plasma_interval
 
 
 SOURCE_LABELS = {
-    "wavelet_teacher": "Wavelet teacher",
-    "posr": "Raw POSR",
-    "cpd": "Raw CPD",
-    "feature_ml": "Feature-ML",
+    "wavelet_teacher": "Wavelet-разметка",
 }
 SOURCE_COLORS = {
     "wavelet_teacher": "#4c78a8",
-    "posr": "#8f63b8",
-    "cpd": "#e45756",
-    "feature_ml": "#111111",
 }
 SOURCE_SYMBOLS = {
-    "wavelet_teacher": "triangle-down",
-    "posr": "diamond",
-    "cpd": "square",
-    "feature_ml": "circle",
+    "wavelet_teacher": "circle",
 }
+
 EVENT_LABELS = {
     "sawtooth": "Срыв",
-    "uncertain": "Не уверена",
-    "false_positive": "Ложная автоматическая метка",
+    "uncertain": "Возможный срыв",
+    "false_positive": "Ложный срыв",
 }
 SHOT_LABELS = {
-    "sawtooth": "Пила присутствует",
-    "no_sawtooth": "Пилы нет",
-    "uncertain": "Не уверена",
+    "sawtooth": "Пилообразные колебания присутствуют",
+    "no_sawtooth": "Пилообразных колебаний нет",
+    "uncertain": "Не уверен(а)",
 }
+
 ACTION_LABELS = {
-    "inspect": "Выбрать / редактировать",
     "add_sawtooth": "Добавить срыв",
-    "add_uncertain": "Добавить неуверенную",
-    "reject": "Отклонить автоматическую",
+    "reject": "Пометить как ложный срыв",
+    "select_interval": "Выделить интервал",
+    "inspect": "Выбрать / редактировать",
 }
+ACTION_ICON_FILES = {
+    "inspect": "redact.png",
+    "add_sawtooth": "accept.png",
+    "reject": "cancel.png",
+    "select_interval": "interval.png",
+}
+ANNOTATION_MEDIA_DIR = Path(__file__).resolve().with_name("media")
 
 
 def _canonical_shot_id(value: str) -> str:
@@ -76,8 +82,142 @@ def _canonical_shot_id(value: str) -> str:
 
 
 @st.cache_data(show_spinner=False)
+def _action_icon_label(action: str, fallback: str) -> str:
+    """Return an embedded PNG label suitable for a Streamlit button."""
+
+    icon_path = ANNOTATION_MEDIA_DIR / ACTION_ICON_FILES[action]
+    try:
+        encoded = b64encode(icon_path.read_bytes()).decode("ascii")
+    except OSError:
+        return fallback
+    return f"![{fallback}](data:image/png;base64,{encoded})"
+
+
+def _render_action_icon_css() -> None:
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stButton"] button:has(img) {
+            min-height: 3.25rem;
+            padding: 0.35rem;
+        }
+        div[data-testid="stButton"] button img {
+            width: 1.5rem !important;
+            height: 1.5rem !important;
+            max-height: none !important;
+            object-fit: contain;
+            margin: 0 !important;
+        }
+        div[data-testid="stButton"] button:has(img) p {
+            margin: 0;
+            line-height: 1;
+        }
+        .annotation-shot-meta {
+            color: var(--text-color);
+            font-size: 1.05rem;
+            line-height: 1.5;
+            margin: -0.45rem 0 0.8rem;
+            opacity: 0.78;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _plot_view_revision(
+    source_dir: str,
+    channels: tuple[str, ...],
+    signal_height: int,
+    display_start_s: float,
+    display_end_s: float,
+    show_grid: bool,
+    y_ranges: dict[str, tuple[float, float]],
+) -> str:
+    """Return a compact widget revision for settings that rebuild the view."""
+
+    payload = "\0".join(
+        (
+            str(Path(source_dir)),
+            str(signal_height),
+            f"{display_start_s:.12g}",
+            f"{display_end_s:.12g}",
+            str(show_grid),
+            *(
+                f"{name}\0{bounds[0]:.12g}\0{bounds[1]:.12g}"
+                for name, bounds in y_ranges.items()
+            ),
+            *channels,
+        )
+    )
+    return sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def _plot_viewport_token(state_key: str) -> str:
+    return sha256(state_key.encode("utf-8")).hexdigest()[:16]
+
+
+def _plot_viewport_listener_key(state_key: str) -> str:
+    return f"plot_viewport_listener::{_plot_viewport_token(state_key)}"
+
+
+def _valid_axis_range(value) -> tuple[float, float] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        return None
+    try:
+        start, end = float(value[0]), float(value[1])
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(start) or not np.isfinite(end) or end <= start:
+        return None
+    return start, end
+
+
+def _consume_plot_viewport(state_key: str, channels: tuple[str, ...]) -> None:
+    """Copy the latest browser relayout ranges into persistent input fields."""
+
+    listener_state = st.session_state.get(_plot_viewport_listener_key(state_key))
+    if not hasattr(listener_state, "get"):
+        return
+    viewport = listener_state.get("viewport")
+    if not hasattr(viewport, "get"):
+        return
+    sequence = viewport.get("sequence")
+    applied_key = f"plot_viewport_sequence::{state_key}"
+    if sequence is None or st.session_state.get(applied_key) == sequence:
+        return
+
+    x_range = _valid_axis_range(viewport.get("x_range"))
+    if x_range is not None:
+        st.session_state[f"display_start::{state_key}"] = x_range[0]
+        st.session_state[f"display_end::{state_key}"] = x_range[1]
+
+    raw_y_ranges = viewport.get("y_ranges")
+    if hasattr(raw_y_ranges, "items"):
+        for channel, raw_range in raw_y_ranges.items():
+            if channel not in channels:
+                continue
+            y_range = _valid_axis_range(raw_range)
+            if y_range is None:
+                continue
+            st.session_state[f"display_y_min::{state_key}::{channel}"] = y_range[0]
+            st.session_state[f"display_y_max::{state_key}::{channel}"] = y_range[1]
+
+    active_y_channel = viewport.get("active_y_channel")
+    if active_y_channel in channels:
+        st.session_state[f"display_y_channel::{state_key}"] = active_y_channel
+    st.session_state[applied_key] = sequence
+
+
+def _annotation_logger():
+    log_path = Path(DEFAULT_ANNOTATION_UI_LOG_PATH)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    return setup_logger(log_to_file=True, log_file_path=log_path.name)
+
+
+@st.cache_data(show_spinner=False)
 def _available_channels(source_dir: str, relative_path: str) -> list[str]:
-    logger = setup_logger(log_to_file=False)
+    logger = _annotation_logger()
     from src.io.loader import SHTLoader
 
     return SHTLoader(source_dir, logger).list_available_channels(relative_path)
@@ -91,7 +231,7 @@ def _plot_channel_data(
 ) -> tuple[dict[str, tuple[np.ndarray, np.ndarray]], float, float]:
     """Load and decimate signals once instead of on every UI rerun."""
 
-    logger = setup_logger(log_to_file=False)
+    logger = _annotation_logger()
     shot = load_channels(source_dir, relative_path, channels, logger)
     plot_data: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     starts: list[float] = []
@@ -106,23 +246,216 @@ def _plot_channel_data(
     return plot_data, min(starts), max(ends)
 
 
-@st.cache_data(show_spinner="Расчёт POSR, CPD и ML…")
-def _computed_suggestions(
+def _natural_y_ranges(
+    plot_data: dict[str, tuple[np.ndarray, np.ndarray]],
+) -> dict[str, tuple[float, float]]:
+    """Return finite per-channel Y bounds with a small visual padding."""
+
+    result: dict[str, tuple[float, float]] = {}
+    for name, (_, values) in plot_data.items():
+        finite = np.asarray(values, dtype=float)
+        finite = finite[np.isfinite(finite)]
+        if finite.size == 0:
+            result[name] = (-1.0, 1.0)
+            continue
+        lower = float(np.min(finite))
+        upper = float(np.max(finite))
+        span = upper - lower
+        padding = span * 0.05 if span > 0 else max(abs(lower) * 0.05, 1.0)
+        result[name] = (lower - padding, upper + padding)
+    return result
+
+
+@st.cache_data(show_spinner=False)
+def _plasma_display_interval(
     source_dir: str,
     relative_path: str,
-    include_posr: bool,
-    include_cpd: bool,
-    model_path: str,
-) -> tuple[AutomaticSuggestion, ...]:
-    logger = setup_logger(log_to_file=False)
-    effective_model = model_path if model_path and Path(model_path).is_file() else None
-    return compute_automatic_suggestions(
-        source_dir,
-        relative_path,
-        logger,
-        include_posr=include_posr,
-        include_cpd=include_cpd,
-        model_path=effective_model,
+) -> tuple[float, float] | None:
+    """Reuse the detector's 20%-of-maximum current interval for the UI."""
+
+    logger = _annotation_logger()
+    shot = load_channels(source_dir, relative_path, (IP_CHANNEL,), logger)
+    current = shot.get_channel(IP_CHANNEL)
+    interval = detect_plasma_interval(
+        np.asarray(current.values, dtype=float),
+        np.asarray(current.time, dtype=float),
+        threshold_ratio=0.2,
+    )
+    if interval is None:
+        return None
+    return float(interval[0]), float(interval[1])
+
+
+def _render_graph_view_controls(
+    source_dir: str,
+    relative_path: str,
+    state_key: str,
+    full_start: float,
+    full_end: float,
+    natural_y_ranges: dict[str, tuple[float, float]],
+) -> tuple[
+    int,
+    float,
+    float,
+    bool,
+    tuple[float, float],
+    dict[str, tuple[float, float]],
+    str,
+]:
+    """Render persistent graph bounds and return the effective view."""
+
+    with st.expander("Вид графика", expanded=False):
+        signal_height = st.slider(
+            "Высота одного канала, px",
+            min_value=180,
+            max_value=420,
+            value=260,
+            step=20,
+            key=f"signal_height::{state_key}",
+        )
+        show_grid = st.checkbox(
+            "Сетка",
+            value=True,
+            key=f"show_grid::{state_key}",
+        )
+        crop_key = f"crop_by_current::{state_key}"
+        crop_by_current = st.toggle(
+            "Обрезать сигнал по току (20%)",
+            key=crop_key,
+            help=(
+                f"Используется {IP_CHANNEL}: остаётся интервал, в котором ток "
+                "выше 20% своего максимума."
+            ),
+        )
+
+        allowed_start, allowed_end = float(full_start), float(full_end)
+        if crop_by_current:
+            try:
+                plasma_interval = _plasma_display_interval(source_dir, relative_path)
+            except Exception as exc:
+                plasma_interval = None
+                st.warning(f"Не удалось определить интервал по току: {exc}")
+            if plasma_interval is None:
+                st.warning("По току не найден плазменный интервал; показан весь сигнал.")
+            else:
+                allowed_start = max(allowed_start, float(plasma_interval[0]))
+                allowed_end = min(allowed_end, float(plasma_interval[1]))
+
+        start_key = f"display_start::{state_key}"
+        end_key = f"display_end::{state_key}"
+        crop_revision_key = f"display_crop_revision::{state_key}"
+        previous_crop = st.session_state.get(crop_revision_key)
+        if start_key not in st.session_state or previous_crop != crop_by_current:
+            st.session_state[start_key] = allowed_start
+        if end_key not in st.session_state or previous_crop != crop_by_current:
+            st.session_state[end_key] = allowed_end
+        st.session_state[crop_revision_key] = crop_by_current
+
+        st.session_state[start_key] = min(
+            max(float(st.session_state[start_key]), allowed_start), allowed_end
+        )
+        st.session_state[end_key] = min(
+            max(float(st.session_state[end_key]), allowed_start), allowed_end
+        )
+
+        channels = tuple(natural_y_ranges)
+        y_channel_key = f"display_y_channel::{state_key}"
+        if st.session_state.get(y_channel_key) not in channels:
+            st.session_state[y_channel_key] = channels[0]
+        y_channel = st.selectbox(
+            "Канал для оси Y",
+            channels,
+            key=y_channel_key,
+        )
+        for channel, natural_range in natural_y_ranges.items():
+            y_min_key = f"display_y_min::{state_key}::{channel}"
+            y_max_key = f"display_y_max::{state_key}::{channel}"
+            if y_min_key not in st.session_state:
+                st.session_state[y_min_key] = float(natural_range[0])
+            if y_max_key not in st.session_state:
+                st.session_state[y_max_key] = float(natural_range[1])
+
+        y_min_key = f"display_y_min::{state_key}::{y_channel}"
+        y_max_key = f"display_y_max::{state_key}::{y_channel}"
+        first_bounds_row = st.columns(2)
+        display_start = first_bounds_row[0].number_input(
+            "Левая граница X, с",
+            format="%.6f",
+            step=0.001,
+            min_value=allowed_start,
+            max_value=allowed_end,
+            key=start_key,
+        )
+        display_y_min = first_bounds_row[1].number_input(
+            "Нижняя граница Y",
+            format="%.6g",
+            key=y_min_key,
+        )
+        second_bounds_row = st.columns(2)
+        display_end = second_bounds_row[0].number_input(
+            "Правая граница X, с",
+            format="%.6f",
+            step=0.001,
+            min_value=allowed_start,
+            max_value=allowed_end,
+            key=end_key,
+        )
+        display_y_max = second_bounds_row[1].number_input(
+            "Верхняя граница Y",
+            format="%.6g",
+            key=y_max_key,
+        )
+
+        def reset_display_bounds() -> None:
+            st.session_state[start_key] = allowed_start
+            st.session_state[end_key] = allowed_end
+            for channel, natural_range in natural_y_ranges.items():
+                st.session_state[f"display_y_min::{state_key}::{channel}"] = float(
+                    natural_range[0]
+                )
+                st.session_state[f"display_y_max::{state_key}::{channel}"] = float(
+                    natural_range[1]
+                )
+
+        st.button(
+            "Сбросить границы",
+            width="stretch",
+            key=f"reset_display_bounds::{state_key}",
+            on_click=reset_display_bounds,
+        )
+
+        effective_start = max(float(display_start), allowed_start)
+        effective_end = min(float(display_end), allowed_end)
+        if effective_end <= effective_start:
+            st.error("Правая граница должна быть больше левой.")
+            st.stop()
+        if (
+            abs(effective_start - float(display_start)) > 1e-12
+            or abs(effective_end - float(display_end)) > 1e-12
+        ):
+            st.caption(
+                f"Эффективный диапазон: {effective_start:.6f}–"
+                f"{effective_end:.6f} с"
+            )
+        if float(display_y_max) <= float(display_y_min):
+            st.error("Верхняя граница Y должна быть больше нижней.")
+            st.stop()
+
+        y_ranges = {
+            channel: (
+                float(st.session_state[f"display_y_min::{state_key}::{channel}"]),
+                float(st.session_state[f"display_y_max::{state_key}::{channel}"]),
+            )
+            for channel in channels
+        }
+    return (
+        signal_height,
+        effective_start,
+        effective_end,
+        show_grid,
+        (allowed_start, allowed_end),
+        y_ranges,
+        y_channel,
     )
 
 
@@ -288,7 +621,17 @@ def _find_suggestion_by_locator(suggestions, locator) -> int | None:
 
 
 def _event_option(index: int, event: dict) -> str:
-    return f"{index + 1}. {event['time_s']:.6f} s · {EVENT_LABELS[event['label']]}"
+    label = "uncertain" if _is_uncertain_event(event) else event["label"]
+    return f"{index + 1}. {event['time_s']:.6f} s · {EVENT_LABELS[label]}"
+
+
+def _is_uncertain_event(event: dict) -> bool:
+    """Treat either the event type or its confidence as visual uncertainty."""
+
+    return (
+        event.get("label") == "uncertain"
+        or event.get("confidence") == "uncertain"
+    )
 
 
 def _selection_points(plot_state) -> list[dict]:
@@ -312,29 +655,90 @@ def _curve_number(point: dict) -> int:
     return int(point.get("curve_number", point.get("curveNumber", 0)))
 
 
-def _build_figure(plot_data, draft, suggestions):
-    """Build WebGL signals plus a compact clickable annotation rail."""
+def _add_signal_marker_line(
+    figure,
+    time_s: float,
+    *,
+    color: str,
+    signal_y0: float,
+    signal_y1: float,
+    dash: str = "dot",
+    width: float = 1.0,
+    opacity: float = 0.35,
+) -> None:
+    figure.add_shape(
+        type="line",
+        x0=float(time_s),
+        x1=float(time_s),
+        y0=signal_y0,
+        y1=signal_y1,
+        xref="x",
+        yref="paper",
+        line={"color": color, "width": width, "dash": dash},
+        opacity=opacity,
+        layer="above",
+    )
 
+
+def _build_figure(
+    plot_data,
+    draft,
+    suggestions,
+    work_queue=(),
+    signal_height: int = 240,
+    action_mode: str = "inspect",
+    display_range: tuple[float, float] | None = None,
+    show_grid: bool = True,
+    allowed_x_range: tuple[float, float] | None = None,
+    y_ranges: dict[str, tuple[float, float]] | None = None,
+    plot_token: str | None = None,
+):
+    allow_free_time_selection = action_mode in {"add_sawtooth", "select_interval"}
     names = list(plot_data)
+    rail_row = len(names) + 1
+    subplot_gap_px = 48
+    figure_height = (
+        int(signal_height) * len(names)
+        + 260
+        + subplot_gap_px * len(names)
+    )
     figure = make_subplots(
         rows=len(names) + 1,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=min(0.025, 0.12 / max(len(names), 1)),
-        row_heights=[0.18, *([1.0] * len(names))],
-        subplot_titles=["Метки", *names],
+        vertical_spacing=subplot_gap_px / figure_height,
+        row_heights=[*([1.0] * len(names)), 0.65],
+        subplot_titles=[*names, "Метки"],
     )
+    bottom_signal_axis = "yaxis" if len(names) == 1 else f"yaxis{len(names)}"
+    signal_y0 = float(figure.layout[bottom_signal_axis].domain[0])
+    signal_y1 = float(figure.layout.yaxis.domain[1])
+    selected_event_keys = {
+        tuple(item["locator"])
+        for item in work_queue
+        if item["kind"] == "event"
+    }
+    selected_suggestion_keys = {
+        tuple(item["locator"])
+        for item in work_queue
+        if item["kind"] == "suggestion"
+    }
     trace_targets: list[dict] = []
-    for row, name in enumerate(names, 2):
+    for row, name in enumerate(names, 1):
         plot_time, plot_values = plot_data[name]
         figure.add_trace(
             go.Scattergl(
                 x=plot_time,
                 y=plot_values,
-                mode="lines",
+                mode="lines+markers" if allow_free_time_selection else "lines",
                 name=name,
                 showlegend=False,
                 line={"width": 1},
+                marker=(
+                    {"size": 10, "opacity": 0.01}
+                    if allow_free_time_selection
+                    else None
+                ),
                 hovertemplate=f"{name}<br>t=%{{x:.6f}} s<extra></extra>",
             ),
             row=row,
@@ -350,32 +754,72 @@ def _build_figure(plot_data, draft, suggestions):
     figure.add_trace(
         go.Scattergl(
             x=[draft["events"][index]["time_s"] for index in manual_indices],
-            y=[5] * len(manual_indices),
+            y=[2] * len(manual_indices),
             mode="markers",
             name="Ручная разметка",
             marker={
-                "size": 12,
+                "size": [
+                    16
+                    if _event_locator(draft["events"][index]) in selected_event_keys
+                    else 11
+                    for index in manual_indices
+                ],
                 "color": [
-                    "#1b9e77"
-                    if draft["events"][index]["label"] == "sawtooth"
-                    else "#e6a700"
+                    "#e6a700"
+                    if _is_uncertain_event(draft["events"][index])
+                    else "#1b9e77"
                     for index in manual_indices
                 ],
                 "symbol": [
-                    "triangle-up"
-                    if draft["events"][index]["label"] == "sawtooth"
-                    else "diamond"
+                    "circle-open"
+                    if _is_uncertain_event(draft["events"][index])
+                    else "circle"
                     for index in manual_indices
                 ],
-                "line": {"width": 1, "color": "#ffffff"},
+                "line": {
+                    "width": [
+                        3
+                        if _event_locator(draft["events"][index])
+                        in selected_event_keys
+                        else 1
+                        for index in manual_indices
+                    ],
+                    "color": [
+                        "#00c8ff"
+                        if _event_locator(draft["events"][index])
+                        in selected_event_keys
+                        else "#ffffff"
+                        for index in manual_indices
+                    ],
+                },
             },
-            text=[EVENT_LABELS[draft["events"][index]["label"]] for index in manual_indices],
+            text=[
+                EVENT_LABELS[
+                    "uncertain"
+                    if _is_uncertain_event(draft["events"][index])
+                    else draft["events"][index]["label"]
+                ]
+                for index in manual_indices
+            ],
             hovertemplate="%{text}<br>t=%{x:.6f} s<extra></extra>",
         ),
-        row=1,
+        row=rail_row,
         col=1,
     )
     trace_targets.append({"kind": "manual", "indices": manual_indices})
+    for index in manual_indices:
+        event = draft["events"][index]
+        is_uncertain = _is_uncertain_event(event)
+        _add_signal_marker_line(
+            figure,
+            event["time_s"],
+            color="#e6a700" if is_uncertain else "#1b9e77",
+            signal_y0=signal_y0,
+            signal_y1=signal_y1,
+            dash="dash" if is_uncertain else "solid",
+            width=1.5,
+            opacity=0.65,
+        )
 
     rejected_keys = {
         (event.get("source"), round(float(event["time_s"]), 12))
@@ -383,10 +827,7 @@ def _build_figure(plot_data, draft, suggestions):
         if event["label"] == "false_positive"
     }
     source_levels = {
-        "wavelet_teacher": 4,
-        "posr": 3,
-        "cpd": 2,
-        "feature_ml": 1,
+        "wavelet_teacher": 1,
     }
     for source in SOURCE_LABELS:
         indices = [
@@ -400,6 +841,10 @@ def _build_figure(plot_data, draft, suggestions):
             (source, round(float(suggestions[index].time_s), 12)) in rejected_keys
             for index in indices
         ]
+        selected = [
+            _suggestion_locator(suggestions[index]) in selected_suggestion_keys
+            for index in indices
+        ]
         figure.add_trace(
             go.Scattergl(
                 x=[suggestions[index].time_s for index in indices],
@@ -407,7 +852,7 @@ def _build_figure(plot_data, draft, suggestions):
                 mode="markers",
                 name=SOURCE_LABELS[source],
                 marker={
-                    "size": 10,
+                    "size": [15 if is_selected else 10 for is_selected in selected],
                     "color": [
                         "#b7b7b7" if is_rejected else SOURCE_COLORS[source]
                         for is_rejected in rejected
@@ -416,6 +861,10 @@ def _build_figure(plot_data, draft, suggestions):
                         "x" if is_rejected else SOURCE_SYMBOLS[source]
                         for is_rejected in rejected
                     ],
+                    "line": {
+                        "width": [3 if is_selected else 0 for is_selected in selected],
+                        "color": "#00c8ff",
+                    },
                 },
                 text=[
                     f"{SOURCE_LABELS[source]} · score={suggestions[index].score:.3g}"
@@ -424,10 +873,23 @@ def _build_figure(plot_data, draft, suggestions):
                 ],
                 hovertemplate="%{text}<br>t=%{x:.6f} s<extra></extra>",
             ),
-            row=1,
+            row=rail_row,
             col=1,
         )
         trace_targets.append({"kind": "suggestion", "indices": indices})
+        for index, is_rejected in zip(indices, rejected):
+            if is_rejected:
+                continue
+            _add_signal_marker_line(
+                figure,
+                suggestions[index].time_s,
+                color=SOURCE_COLORS[source],
+                signal_y0=signal_y0,
+                signal_y1=signal_y1,
+                dash="dot",
+                width=1.0,
+                opacity=0.3,
+            )
 
     rejected_indices = [
         index
@@ -440,7 +902,26 @@ def _build_figure(plot_data, draft, suggestions):
             y=[0] * len(rejected_indices),
             mode="markers",
             name="Ложные срабатывания",
-            marker={"size": 11, "color": "#d62728", "symbol": "x"},
+            marker={
+                "size": [
+                    15
+                    if _event_locator(draft["events"][index]) in selected_event_keys
+                    else 11
+                    for index in rejected_indices
+                ],
+                "color": "#d62728",
+                "symbol": "x",
+                "line": {
+                    "width": [
+                        3
+                        if _event_locator(draft["events"][index])
+                        in selected_event_keys
+                        else 0
+                        for index in rejected_indices
+                    ],
+                    "color": "#00c8ff",
+                },
+            },
             text=[
                 SOURCE_LABELS.get(
                     draft["events"][index].get("source"),
@@ -448,12 +929,82 @@ def _build_figure(plot_data, draft, suggestions):
                 )
                 for index in rejected_indices
             ],
-            hovertemplate="Ложное срабатывание · %{text}<br>t=%{x:.6f} s<extra></extra>",
+            hovertemplate="Ложный срыв · %{text}<br>t=%{x:.6f} s<extra></extra>",
         ),
-        row=1,
+        row=rail_row,
         col=1,
     )
     trace_targets.append({"kind": "rejected", "indices": rejected_indices})
+    for index in rejected_indices:
+        _add_signal_marker_line(
+            figure,
+            draft["events"][index]["time_s"],
+            color="#d62728",
+            signal_y0=signal_y0,
+            signal_y1=signal_y1,
+            dash="dash",
+            width=1.2,
+            opacity=0.45,
+        )
+
+    for item in _selection_overlay_items(list(work_queue), draft):
+        time_s = float(item["time_s"])
+        tolerance_s = float(item["tolerance_s"])
+        figure.add_shape(
+            type="rect",
+            x0=time_s - tolerance_s,
+            x1=time_s + tolerance_s,
+            y0=signal_y0,
+            y1=signal_y1,
+            xref="x",
+            yref="paper",
+            fillcolor="rgba(0, 168, 214, 0.14)",
+            line={"width": 0},
+            layer="above",
+        )
+        if item["kind"] != "boundary":
+            _add_signal_marker_line(
+                figure,
+                time_s,
+                color="#00a8d6",
+                signal_y0=signal_y0,
+                signal_y1=signal_y1,
+                dash="dash",
+                width=2.0,
+                opacity=0.95,
+            )
+
+    boundaries = sorted(
+        float(item["time_s"])
+        for item in work_queue
+        if item["kind"] == "boundary"
+    )
+    for boundary_s in boundaries:
+        figure.add_shape(
+            type="line",
+            x0=boundary_s,
+            x1=boundary_s,
+            y0=0,
+            y1=1,
+            xref="x",
+            yref="paper",
+            line={"color": "#00a8d6", "width": 2, "dash": "dash"},
+            opacity=0.9,
+            layer="above",
+        )
+    if len(boundaries) == 2:
+        figure.add_shape(
+            type="rect",
+            x0=boundaries[0],
+            x1=boundaries[1],
+            y0=0,
+            y1=1,
+            xref="x",
+            yref="paper",
+            fillcolor="rgba(0, 168, 214, 0.08)",
+            line={"width": 0},
+            layer="below",
+        )
 
     for start_s, end_s in draft["reviewed_intervals_s"]:
         figure.add_shape(
@@ -469,23 +1020,90 @@ def _build_figure(plot_data, draft, suggestions):
             layer="below",
         )
     figure.update_layout(
-        height=max(560, 175 * len(names) + 150),
-        margin={"l": 70, "r": 20, "t": 50, "b": 45},
-        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0},
+        height=figure_height,
+        margin={"l": 10, "r": 30, "t": 90, "b": 55},
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.04,
+            "x": 0,
+            "font": {"size": 14},
+            "itemsizing": "constant",
+        },
         hovermode="closest",
         clickmode="event+select",
         dragmode="pan",
         uirevision=f"{draft['shot_id']}:{','.join(names)}",
+        meta={"sxr_viewport_token": plot_token} if plot_token else None,
     )
     figure.update_yaxes(
         tickmode="array",
-        tickvals=[0, 1, 2, 3, 4, 5],
-        ticktext=["Отклонено", "ML", "CPD", "POSR", "Teacher", "Вручную"],
+        tickvals=[0, 1, 2],
+        ticktext=[
+            "Отклонённые<br>метки",
+            "Wavelet<br>разметка",
+            "Ручная<br>разметка",
+        ],
+        range=[-0.5, 2.5],
+        tickfont={"size": 12},
         fixedrange=True,
-        row=1,
+        row=rail_row,
         col=1,
     )
-    figure.update_xaxes(title_text="Время, с", row=len(names) + 1, col=1)
+    for row in range(1, rail_row):
+        figure.update_xaxes(
+            showline=True,
+            showgrid=show_grid,
+            mirror=True,
+            linewidth=1,
+            linecolor="rgba(105, 125, 145, 0.55)",
+            row=row,
+            col=1,
+        )
+        figure.update_yaxes(
+            showline=True,
+            showgrid=show_grid,
+            mirror=True,
+            linewidth=1,
+            linecolor="rgba(105, 125, 145, 0.55)",
+            row=row,
+            col=1,
+        )
+    figure.update_xaxes(
+        showline=True,
+        showgrid=False,
+        mirror=False,
+        linewidth=1,
+        linecolor="rgba(105, 125, 145, 0.55)",
+        row=rail_row,
+        col=1,
+    )
+    figure.update_yaxes(
+        showline=True,
+        showgrid=True,
+        gridwidth=1,
+        gridcolor="rgba(105, 125, 145, 0.38)",
+        mirror=False,
+        linewidth=1,
+        linecolor="rgba(105, 125, 145, 0.55)",
+        row=rail_row,
+        col=1,
+    )
+    if display_range is not None:
+        figure.update_xaxes(range=list(display_range))
+    if allowed_x_range is not None:
+        figure.update_xaxes(
+            minallowed=float(allowed_x_range[0]),
+            maxallowed=float(allowed_x_range[1]),
+        )
+    if y_ranges is not None:
+        for row, name in enumerate(names, 1):
+            bounds = y_ranges.get(name)
+            if bounds is not None:
+                figure.update_yaxes(range=list(bounds), row=row, col=1)
+    figure.update_xaxes(title_text="Время, с", row=rail_row, col=1)
+    figure.update_annotations(font={"size": 16})
+
     return figure, trace_targets
 
 
@@ -514,47 +1132,349 @@ def _reject_from_ui(draft: dict, suggestion: AutomaticSuggestion) -> None:
     _, created = _reject_suggestion(draft, suggestion)
     _set_flash(
         "success" if created else "info",
-        "Автометка отклонена" if created else "Автометка уже отклонена",
+        (
+            "Помечено как ложный срыв"
+            if created
+            else "Метка уже помечена как ложный срыв"
+        ),
     )
 
 
-def _render_interval_controls(draft: dict, state_key: str, full_start: float, full_end: float) -> None:
-    with st.expander("Просмотренные интервалы", expanded=False):
-        for index, (start_s, end_s) in enumerate(draft["reviewed_intervals_s"], 1):
-            st.caption(f"{index}. {start_s:.6f} – {end_s:.6f} s")
-        interval_start = st.number_input(
-            "Начало, s",
-            value=full_start,
-            format="%.6f",
-            key=f"interval_start::{state_key}",
+def _queue_item_key(item: dict) -> tuple:
+    if item["kind"] == "event":
+        return ("event", *tuple(item["locator"]))
+    if item["kind"] == "suggestion":
+        return ("suggestion", *tuple(item["locator"]))
+    return (
+        item["kind"],
+        round(float(item["time_s"]), 12),
+        item.get("reference_sxr"),
+    )
+
+
+def _enqueue_work_item(item: dict) -> bool:
+    queue = st.session_state.work_queue
+    key = _queue_item_key(item)
+    if any(_queue_item_key(existing) == key for existing in queue):
+        return False
+    queue.append(item)
+    return True
+
+
+def _work_item_label(item: dict) -> str:
+    time_s = float(item["time_s"])
+    if item["kind"] == "boundary":
+        return f"Граница интервала · {time_s:.6f} s"
+    if item["kind"] == "suggestion":
+        return f"{SOURCE_LABELS[item['source']]} · {time_s:.6f} s"
+    if item["kind"] == "event":
+        return f"{EVENT_LABELS[item['label']]} · {time_s:.6f} s"
+    channel = item.get("reference_sxr")
+    return f"Точка · {time_s:.6f} s" + (f" · {channel}" if channel else "")
+
+
+def _clear_work_queue() -> None:
+    st.session_state.work_queue = []
+    st.session_state.selected_event_locator = None
+    st.session_state.selected_suggestion_locator = None
+    st.session_state.selected_time_s = None
+    st.session_state.selected_channel = None
+
+
+def _selection_overlay_items(work_queue: list[dict], draft: dict) -> list[dict]:
+    """Resolve the visible time tolerance for every queued selection."""
+
+    events_by_locator = {
+        _event_locator(event): event for event in draft.get("events", [])
+    }
+    items: list[dict] = []
+    for item in work_queue:
+        tolerance_s = float(item.get("tolerance_s") or 0.3e-3)
+        if item["kind"] == "event":
+            event = events_by_locator.get(tuple(item["locator"]))
+            if event is not None:
+                tolerance_s = float(event.get("tolerance_s") or 0.3e-3)
+        items.append(
+            {
+                "kind": item["kind"],
+                "time_s": float(item["time_s"]),
+                "tolerance_s": tolerance_s,
+            }
         )
-        interval_end = st.number_input(
-            "Конец, s",
-            value=full_end,
-            format="%.6f",
-            key=f"interval_end::{state_key}",
+    return items
+
+
+def _render_action_buttons(state_key: str) -> str:
+    st.subheader("Область редактирования ")
+    _render_action_icon_css()
+    current = st.session_state.action_mode
+    columns = st.columns(len(ACTION_LABELS))
+    for column, (action, label) in zip(columns, ACTION_LABELS.items()):
+        clicked = column.button(
+            _action_icon_label(action, label),
+            help=label,
+            type="primary" if action == current else "secondary",
+            width="stretch",
+            key=f"action::{action}::{state_key}",
         )
-        if st.button("Добавить интервал", key=f"add_interval::{state_key}"):
-            try:
-                draft["reviewed_intervals_s"] = merge_reviewed_interval(
-                    draft["reviewed_intervals_s"], interval_start, interval_end
-                )
-                st.rerun()
-            except ValueError as exc:
-                st.error(str(exc))
-        if draft["reviewed_intervals_s"]:
-            remove_interval = st.selectbox(
-                "Удалить интервал",
-                range(len(draft["reviewed_intervals_s"])),
-                format_func=lambda index: (
-                    f"{draft['reviewed_intervals_s'][index][0]:.6f} – "
-                    f"{draft['reviewed_intervals_s'][index][1]:.6f} s"
-                ),
-                key=f"remove_interval::{state_key}",
+        if clicked and action != current:
+            st.session_state.action_mode = action
+            _clear_work_queue()
+            st.session_state.last_plot_selection = None
+            st.rerun()
+    return current
+
+
+def _queue_plot_selection(
+    points: list[dict],
+    trace_targets: list[dict],
+    suggestions,
+    draft: dict,
+    action_mode: str,
+) -> bool:
+    signatures = tuple(
+        sorted(
+            (
+                _curve_number(point),
+                _point_number(point),
+                round(float(point["x"]), 12),
             )
-            if st.button("Удалить", key=f"remove_interval_button::{state_key}"):
-                draft["reviewed_intervals_s"].pop(remove_interval)
-                st.rerun()
+            for point in points
+        )
+    )
+    if not signatures or signatures == st.session_state.last_plot_selection:
+        return False
+    st.session_state.last_plot_selection = signatures
+    if action_mode == "select_interval":
+        selected_times = sorted({float(point["x"]) for point in points})
+        boundaries = [
+            item for item in st.session_state.work_queue if item["kind"] == "boundary"
+        ]
+        if len(selected_times) >= 2:
+            boundaries = [
+                {"kind": "boundary", "time_s": selected_times[0]},
+                {"kind": "boundary", "time_s": selected_times[-1]},
+            ]
+        else:
+            boundary = {"kind": "boundary", "time_s": selected_times[0]}
+            if len(boundaries) >= 2:
+                boundaries = [boundary]
+            elif not any(
+                abs(float(item["time_s"]) - selected_times[0]) < 1e-12
+                for item in boundaries
+            ):
+                boundaries.append(boundary)
+        st.session_state.work_queue = boundaries
+        if len(boundaries) == 2:
+            _select_interval_items(draft, suggestions)
+        st.session_state.plot_selection_warning = None
+        return True
+
+    original_queue = list(st.session_state.work_queue)
+    if action_mode == "inspect":
+        st.session_state.work_queue = []
+    queue_changed = False
+    for point in points:
+        curve = _curve_number(point)
+        point_number = _point_number(point)
+        if not 0 <= curve < len(trace_targets):
+            continue
+        target = trace_targets[curve]
+        time_s = float(point["x"])
+        reference_sxr = None
+        suggestion = None
+        event = None
+        if target["kind"] == "signal":
+            reference_sxr = (
+                target["channel"] if target["channel"] in SXR_CHANNELS else None
+            )
+        elif point_number < len(target.get("indices", [])):
+            target_index = target["indices"][point_number]
+            if target["kind"] == "suggestion":
+                suggestion = suggestions[target_index]
+                reference_sxr = suggestion.reference_sxr
+            else:
+                event = draft["events"][target_index]
+                reference_sxr = event.get("reference_sxr")
+
+        if action_mode == "add_sawtooth":
+            queue_changed |= _enqueue_work_item(
+                {
+                    "kind": "point",
+                    "time_s": time_s,
+                    "reference_sxr": reference_sxr,
+                }
+            )
+        elif action_mode == "reject":
+            if suggestion is None:
+                continue
+            queue_changed |= _enqueue_work_item(
+                {
+                    "kind": "suggestion",
+                    "time_s": suggestion.time_s,
+                    "source": suggestion.source,
+                    "locator": list(_suggestion_locator(suggestion)),
+                }
+            )
+        elif suggestion is not None:
+            queue_changed |= _enqueue_work_item(
+                {
+                    "kind": "suggestion",
+                    "time_s": suggestion.time_s,
+                    "source": suggestion.source,
+                    "locator": list(_suggestion_locator(suggestion)),
+                }
+            )
+            st.session_state.selected_suggestion_locator = _suggestion_locator(suggestion)
+            st.session_state.selected_event_locator = None
+        elif event is not None:
+            queue_changed |= _enqueue_work_item(
+                {
+                    "kind": "event",
+                    "time_s": float(event["time_s"]),
+                    "label": event["label"],
+                    "locator": list(_event_locator(event)),
+                }
+            )
+            st.session_state.selected_event_locator = _event_locator(event)
+            st.session_state.selected_suggestion_locator = None
+            st.session_state.sync_editor_selection = True
+    st.session_state.plot_selection_warning = None
+    if action_mode == "inspect" and queue_changed:
+        candidates = list(st.session_state.work_queue)
+        original_keys = {_queue_item_key(item) for item in original_queue}
+        newly_selected = [
+            item for item in candidates if _queue_item_key(item) not in original_keys
+        ]
+        chosen = (newly_selected or candidates)[-1]
+        st.session_state.work_queue = [chosen]
+        if chosen["kind"] == "suggestion":
+            st.session_state.selected_suggestion_locator = tuple(chosen["locator"])
+            st.session_state.selected_event_locator = None
+        else:
+            st.session_state.selected_event_locator = tuple(chosen["locator"])
+            st.session_state.selected_suggestion_locator = None
+        queue_changed = [
+            _queue_item_key(item) for item in st.session_state.work_queue
+        ] != [_queue_item_key(item) for item in original_queue]
+    elif action_mode == "inspect":
+        st.session_state.work_queue = original_queue
+    return queue_changed
+
+
+def _select_interval_items(draft: dict, suggestions) -> tuple[int, int]:
+    boundaries = sorted(
+        float(item["time_s"])
+        for item in st.session_state.work_queue
+        if item["kind"] == "boundary"
+    )
+    if len(boundaries) != 2:
+        return 0, 0
+    start_s, end_s = boundaries
+    queue = [
+        {"kind": "boundary", "time_s": start_s},
+        {"kind": "boundary", "time_s": end_s},
+    ]
+    events = [
+        {
+            "kind": "event",
+            "time_s": float(event["time_s"]),
+            "label": event["label"],
+            "locator": list(_event_locator(event)),
+        }
+        for event in draft["events"]
+        if start_s <= float(event["time_s"]) <= end_s
+    ]
+    automatic = [
+        {
+            "kind": "suggestion",
+            "time_s": suggestion.time_s,
+            "source": suggestion.source,
+            "locator": list(_suggestion_locator(suggestion)),
+        }
+        for suggestion in suggestions
+        if start_s <= suggestion.time_s <= end_s
+    ]
+    st.session_state.work_queue = queue + events + automatic
+    return len(events), len(automatic)
+
+
+def _apply_add_queue(draft: dict, label: str) -> tuple[int, int]:
+    created_count = 0
+    duplicate_count = 0
+    for item in st.session_state.work_queue:
+        if item["kind"] not in {"point", "suggestion"}:
+            continue
+        reference_sxr = item.get("reference_sxr")
+        if item["kind"] == "suggestion":
+            reference_sxr = item.get("reference_sxr", reference_sxr)
+        _, created = _add_manual_event(
+            draft,
+            float(item["time_s"]),
+            label,
+            reference_sxr,
+        )
+        created_count += int(created)
+        duplicate_count += int(not created)
+    if label == "sawtooth" and created_count:
+        st.session_state.pending_shot_label = "sawtooth"
+    return created_count, duplicate_count
+
+
+def _apply_reject_queue(draft: dict, suggestions) -> tuple[int, int]:
+    created_count = 0
+    missing_count = 0
+    for item in st.session_state.work_queue:
+        if item["kind"] != "suggestion":
+            continue
+        index = _find_suggestion_by_locator(suggestions, item["locator"])
+        if index is None:
+            missing_count += 1
+            continue
+        _, created = _reject_suggestion(draft, suggestions[index])
+        created_count += int(created)
+    return created_count, missing_count
+
+
+def _apply_accept_suggestion_queue(
+    draft: dict,
+    suggestions,
+    label: str,
+) -> tuple[int, int]:
+    created_count = 0
+    missing_count = 0
+    for item in st.session_state.work_queue:
+        if item["kind"] != "suggestion":
+            continue
+        index = _find_suggestion_by_locator(suggestions, item["locator"])
+        if index is None:
+            missing_count += 1
+            continue
+        suggestion = suggestions[index]
+        _, created = _add_manual_event(
+            draft,
+            suggestion.time_s,
+            label,
+            suggestion.reference_sxr,
+            visible_sxr=list(suggestion.source_channels),
+        )
+        created_count += int(created)
+    if label == "sawtooth" and created_count:
+        st.session_state.pending_shot_label = "sawtooth"
+    return created_count, missing_count
+
+
+def _delete_queued_events(draft: dict) -> int:
+    indices = {
+        index
+        for item in st.session_state.work_queue
+        if item["kind"] == "event"
+        for index in [_find_event_by_locator(draft["events"], item["locator"])]
+        if index is not None
+    }
+    for index in sorted(indices, reverse=True):
+        draft["events"].pop(index)
+    return len(indices)
 
 
 def _render_decision_sidebar(
@@ -566,18 +1486,14 @@ def _render_decision_sidebar(
     shot_id: str,
 ) -> None:
     pending_label = st.session_state.pop("pending_shot_label", None)
-    pending_status = st.session_state.pop("pending_review_status", None)
     review_status_key = f"review_status::{state_key}"
     shot_label_key = f"shot_label::{state_key}"
     if pending_label is not None:
         draft["shot_label"] = pending_label
         st.session_state[shot_label_key] = pending_label
-    if pending_status is not None:
-        draft["review_status"] = pending_status
-        st.session_state[review_status_key] = pending_status
 
     st.divider()
-    st.header("Решение по файлу")
+    st.subheader("Решение по файлу")
     review_status = st.selectbox(
         "Статус просмотра",
         ["partial", "complete"],
@@ -598,29 +1514,12 @@ def _render_decision_sidebar(
         key=f"note::{state_key}",
     )
     draft.update(review_status=review_status, shot_label=shot_label, note=note)
+    if review_status == "complete":
+        draft["reviewed_intervals_s"] = [
+            [max(0.0, float(full_start)), float(full_end)]
+        ]
 
-    _render_interval_controls(draft, state_key, full_start, full_end)
-    with st.expander("В файле нет пилы", expanded=False):
-        confirmed = st.checkbox(
-            "Файл просмотрен целиком",
-            key=f"no_saw_confirm::{state_key}",
-        )
-        if st.button(
-            "Подтвердить отсутствие пилы",
-            disabled=not confirmed,
-            key=f"no_saw_button::{state_key}",
-        ):
-            draft["review_status"] = "complete"
-            draft["shot_label"] = "no_sawtooth"
-            draft["reviewed_intervals_s"] = [[max(0.0, full_start), full_end]]
-            draft["events"] = [
-                event for event in draft["events"] if event["label"] == "false_positive"
-            ]
-            st.session_state.pending_review_status = "complete"
-            st.session_state.pending_shot_label = "no_sawtooth"
-            st.rerun()
-
-    if st.button("Сохранить файл", type="primary", width="stretch"):
+    if st.button("Сохранить", type="primary", width="stretch"):
         try:
             parse_expert_labels(
                 {"schema_version": EXPERT_LABEL_SCHEMA_VERSION, "shots": [draft]}
@@ -637,33 +1536,498 @@ def _render_decision_sidebar(
         except Exception as exc:
             st.error(f"Разметка не сохранена: {exc}")
 
+    if st.button(
+        "Обновить",
+        width="stretch",
+        key=f"refresh_after_save::{state_key}",
+        help=(
+            "Перечитать экспертную разметку и список файлов. При фильтре "
+            "«Только неразмеченные» откроется следующий доступный файл."
+        ),
+    ):
+        st.session_state.active_annotation = None
+        st.rerun()
+
+
+def _render_event_editor(
+    draft: dict,
+    event_index: int,
+    available_sxr: list[str],
+    state_key: str,
+) -> None:
+    existing = draft["events"][event_index]
+    st.markdown(
+        f"**Редактирование метки около {float(existing['time_s']):.6f} s**"
+    )
+    revision = _event_locator(existing)
+    with st.form(f"workspace_editor::{state_key}::{revision}"):
+        event_time = st.number_input(
+            "Время, s", value=float(existing["time_s"]), format="%.6f"
+        )
+        initial_reference = existing.get("reference_sxr")
+        reference_sxr = (
+            st.selectbox(
+                "Опорный SXR",
+                available_sxr,
+                index=(
+                    available_sxr.index(initial_reference)
+                    if initial_reference in available_sxr
+                    else 0
+                ),
+            )
+            if available_sxr
+            else None
+        )
+        mark_sawtooth = st.form_submit_button(
+            "Пометить как срыв", type="primary", width="stretch"
+        )
+        mark_uncertain = st.form_submit_button(
+            "Пометить как возможный срыв", width="stretch"
+        )
+        st.form_submit_button(
+            "Пометить как ложный срыв",
+            disabled=True,
+            help=(
+                "Метка уже помечена как ложный срыв."
+                if existing["label"] == "false_positive"
+                else "Это действие доступно для исходной автоматической метки."
+            ),
+            width="stretch",
+        )
+        delete_manual = st.form_submit_button(
+            "Удалить ручные метки",
+            disabled=existing.get("source") is not None,
+            help=(
+                None
+                if existing.get("source") is None
+                else "Удаление доступно только для ручной метки."
+            ),
+            width="stretch",
+        )
+        if delete_manual:
+            draft["events"].pop(event_index)
+            _clear_work_queue()
+            _set_flash("success", "Ручная метка удалена")
+            st.rerun()
+        if mark_sawtooth or mark_uncertain:
+            event_label = "uncertain" if mark_uncertain else "sawtooth"
+            tolerance_s = 0.3e-3
+            initial_visible = [
+                name
+                for name in existing.get("visible_sxr", [])
+                if name in available_sxr
+            ]
+            visible = list(
+                dict.fromkeys(name for name in [reference_sxr, *initial_visible] if name)
+            )
+            updated = {
+                "time_s": float(event_time),
+                "label": event_label,
+                "tolerance_s": tolerance_s,
+                "confidence": "uncertain" if event_label == "uncertain" else "certain",
+                "reference_sxr": reference_sxr,
+                "visible_sxr": visible,
+                "note": existing.get("note", ""),
+            }
+            draft["events"][event_index] = updated
+            draft["events"].sort(key=lambda item: float(item["time_s"]))
+            _ensure_local_review(draft, event_time, updated["tolerance_s"])
+            if event_label == "sawtooth":
+                st.session_state.pending_shot_label = "sawtooth"
+            _clear_work_queue()
+            _set_flash("success", "Метка обновлена")
+            st.rerun()
+
+
+def _render_new_event_editor(
+    draft: dict,
+    time_s: float,
+    reference_sxr: str | None,
+    available_sxr: list[str],
+    state_key: str,
+    key_suffix: str,
+    visible_sxr: tuple[str, ...] = (),
+    suggestion: AutomaticSuggestion | None = None,
+) -> None:
+    st.markdown(f"**Редактирование метки около {float(time_s):.6f} s**")
+    with st.form(f"new_event_editor::{state_key}::{key_suffix}"):
+        event_time = st.number_input("Время, s", value=float(time_s), format="%.6f")
+        effective_reference = (
+            reference_sxr if reference_sxr in available_sxr else None
+        )
+        selected_reference = (
+            st.selectbox(
+                "Опорный SXR",
+                available_sxr,
+                index=(
+                    available_sxr.index(effective_reference)
+                    if effective_reference in available_sxr
+                    else 0
+                ),
+            )
+            if available_sxr
+            else None
+        )
+        mark_sawtooth = st.form_submit_button(
+            "Пометить как срыв", type="primary", width="stretch"
+        )
+        mark_uncertain = st.form_submit_button(
+            "Пометить как возможный срыв", width="stretch"
+        )
+        mark_false = st.form_submit_button(
+            "Пометить как ложный срыв",
+            disabled=suggestion is None,
+            help=(
+                None
+                if suggestion is not None
+                else "Это действие доступно только для автоматической метки."
+            ),
+            width="stretch",
+        )
+        st.form_submit_button(
+            "Удалить ручные метки",
+            disabled=True,
+            help="Удаление доступно только для уже сохранённой ручной метки.",
+            width="stretch",
+        )
+        if mark_false and suggestion is not None:
+            _reject_from_ui(draft, suggestion)
+            _clear_work_queue()
+            st.rerun()
+        if mark_sawtooth or mark_uncertain:
+            event_label = "uncertain" if mark_uncertain else "sawtooth"
+            automatic_visible_sxr = [
+                name for name in visible_sxr if name in available_sxr
+            ]
+            index, created = _add_manual_event(
+                draft,
+                float(event_time),
+                event_label,
+                selected_reference,
+                tolerance_s=0.3e-3,
+                visible_sxr=automatic_visible_sxr,
+                confidence="uncertain" if event_label == "uncertain" else "certain",
+            )
+            if event_label == "sawtooth" and created:
+                st.session_state.pending_shot_label = "sawtooth"
+            _clear_work_queue()
+            _set_flash(
+                "success" if created else "info",
+                "Метка добавлена" if created else "Такая метка уже существует",
+            )
+            del index
+            st.rerun()
+
+
+def _render_workspace(
+    draft: dict,
+    suggestions,
+    available_sxr: list[str],
+    state_key: str,
+    full_start: float,
+    action_mode: str,
+) -> None:
+    queue = st.session_state.work_queue
+    if action_mode == "inspect" and len(queue) > 1:
+        queue = [queue[-1]]
+        st.session_state.work_queue = queue
+    warning = st.session_state.pop("plot_selection_warning", None)
+    if warning:
+        st.warning(warning)
+    selected_count = sum(item["kind"] != "boundary" for item in queue)
+
+    remove_indices = st.multiselect(
+        "Убрать из выбора",
+        range(len(queue)),
+        format_func=lambda index: _work_item_label(queue[index]),
+        key=f"queue_remove::{state_key}::{len(queue)}",
+        disabled=not queue,
+    )
+    queue_controls = st.columns(2)
+    if queue_controls[0].button(
+        "Убрать отмеченные",
+        disabled=not remove_indices,
+        width="stretch",
+        key=f"queue_remove_button::{state_key}",
+    ):
+        remove_set = set(remove_indices)
+        st.session_state.work_queue = [
+            item for index, item in enumerate(queue) if index not in remove_set
+        ]
+        st.session_state.last_plot_selection = None
+        st.rerun()
+    if queue_controls[1].button(
+        "Очистить",
+        disabled=not queue,
+        width="stretch",
+        key=f"queue_clear::{state_key}",
+    ):
+        _clear_work_queue()
+        st.session_state.last_plot_selection = None
+        st.rerun()
+
+    if action_mode == "select_interval":
+        boundaries = sorted(
+            float(item["time_s"])
+            for item in queue
+            if item["kind"] == "boundary"
+        )
+        if len(boundaries) < 2:
+            # st.info("Поставьте две границы кликами по графику.")
+            pass
+        else:
+            interval_start_key = f"selection_interval_start::{state_key}"
+            interval_end_key = f"selection_interval_end::{state_key}"
+            interval_revision_key = f"selection_interval_revision::{state_key}"
+            interval_error_key = f"selection_interval_error::{state_key}"
+            boundary_revision = tuple(round(value, 12) for value in boundaries)
+            if st.session_state.get(interval_revision_key) != boundary_revision:
+                st.session_state[interval_start_key] = boundaries[0]
+                st.session_state[interval_end_key] = boundaries[1]
+                st.session_state[interval_revision_key] = boundary_revision
+
+            def update_interval_from_fields() -> None:
+                start_s = float(st.session_state[interval_start_key])
+                end_s = float(st.session_state[interval_end_key])
+                if end_s <= start_s:
+                    st.session_state[interval_error_key] = (
+                        "Правая граница интервала должна быть больше левой."
+                    )
+                    return
+                st.session_state.pop(interval_error_key, None)
+                st.session_state.work_queue = [
+                    {"kind": "boundary", "time_s": start_s},
+                    {"kind": "boundary", "time_s": end_s},
+                ]
+                _select_interval_items(draft, suggestions)
+                st.session_state.last_plot_selection = None
+
+            interval_columns = st.columns(2)
+            interval_columns[0].number_input(
+                "Левая граница интервала, с",
+                format="%.6f",
+                step=0.001,
+                key=interval_start_key,
+                on_change=update_interval_from_fields,
+            )
+            interval_columns[1].number_input(
+                "Правая граница интервала, с",
+                format="%.6f",
+                step=0.001,
+                key=interval_end_key,
+                on_change=update_interval_from_fields,
+            )
+            interval_error = st.session_state.get(interval_error_key)
+            if interval_error:
+                st.error(interval_error)
+
+            event_count = sum(item["kind"] == "event" for item in queue)
+            suggestion_count = sum(
+                item["kind"] == "suggestion" for item in queue
+            )
+            if st.button(
+                f"Пометить как срыв ({suggestion_count})",
+                disabled=not suggestion_count,
+                width="stretch",
+                key=f"interval_accept::{state_key}",
+            ):
+                created, missing = _apply_accept_suggestion_queue(
+                    draft, suggestions, "sawtooth"
+                )
+                _clear_work_queue()
+                _set_flash(
+                    "success",
+                    f"Добавлено срывов: {created}"
+                    + (f"; не найдено: {missing}" if missing else ""),
+                )
+                st.rerun()
+            if st.button(
+                f"Пометить как возможный срыв ({suggestion_count})",
+                disabled=not suggestion_count,
+                width="stretch",
+                key=f"interval_uncertain::{state_key}",
+            ):
+                created, missing = _apply_accept_suggestion_queue(
+                    draft, suggestions, "uncertain"
+                )
+                _clear_work_queue()
+                _set_flash(
+                    "success",
+                    f"Добавлено неуверенных: {created}"
+                    + (f"; не найдено: {missing}" if missing else ""),
+                )
+                st.rerun()
+            if st.button(
+                f"Пометить как ложный срыв ({suggestion_count})",
+                disabled=not suggestion_count,
+                width="stretch",
+                key=f"interval_reject::{state_key}",
+            ):
+                created, missing = _apply_reject_queue(draft, suggestions)
+                _clear_work_queue()
+                _set_flash(
+                    "success",
+                    f"Помечено как ложные срывы: {created}"
+                    + (f"; не найдено: {missing}" if missing else ""),
+                )
+                st.rerun()
+            if st.button(
+                f"Удалить ручные метки ({event_count})",
+                disabled=not event_count,
+                width="stretch",
+                key=f"interval_delete::{state_key}",
+            ):
+                deleted = _delete_queued_events(draft)
+                _clear_work_queue()
+                _set_flash("success", f"Удалено меток: {deleted}")
+                st.rerun()
+    elif action_mode == "add_sawtooth":
+        if st.button(
+            f"Пометить как срыв ({selected_count})",
+            type="primary",
+            disabled=not selected_count,
+            width="stretch",
+            key=f"batch_add_sawtooth::{state_key}",
+        ):
+            created, duplicates = _apply_add_queue(draft, "sawtooth")
+            _clear_work_queue()
+            _set_flash(
+                "success",
+                f"Добавлено меток: {created}"
+                + (f"; уже существовало: {duplicates}" if duplicates else ""),
+            )
+            st.rerun()
+        if st.button(
+            f"Пометить как возможный срыв ({selected_count})",
+            disabled=not selected_count,
+            width="stretch",
+            key=f"batch_add_uncertain::{state_key}",
+        ):
+            created, duplicates = _apply_add_queue(draft, "uncertain")
+            _clear_work_queue()
+            _set_flash(
+                "success",
+                f"Добавлено возможных срывов: {created}"
+                + (f"; уже существовало: {duplicates}" if duplicates else ""),
+            )
+            st.rerun()
+        with st.expander("Добавить по точному времени", expanded=False):
+            exact_time = st.number_input(
+                "Время, s",
+                value=float(st.session_state.selected_time_s or full_start),
+                format="%.6f",
+                key=f"exact_time::{state_key}",
+            )
+            if st.button(
+                "Добавить в выбранные",
+                width="stretch",
+                key=f"exact_add::{state_key}",
+            ):
+                reference_sxr = (
+                    st.session_state.selected_channel
+                    if st.session_state.selected_channel in available_sxr
+                    else (available_sxr[0] if available_sxr else None)
+                )
+                _enqueue_work_item(
+                    {
+                        "kind": "point",
+                        "time_s": float(exact_time),
+                        "reference_sxr": reference_sxr,
+                    }
+                )
+                st.rerun()
+    elif action_mode == "reject":
+        suggestion_count = sum(item["kind"] == "suggestion" for item in queue)
+        if st.button(
+            f"Пометить как ложный срыв ({suggestion_count})",
+            type="primary",
+            disabled=not suggestion_count,
+            width="stretch",
+            key=f"batch_reject::{state_key}",
+        ):
+            created, missing = _apply_reject_queue(draft, suggestions)
+            _clear_work_queue()
+            _set_flash(
+                "success",
+                f"Помечено как ложные срывы: {created}"
+                + (f"; не найдено: {missing}" if missing else ""),
+            )
+            st.rerun()
+    if action_mode == "inspect" and len(queue) == 1:
+        st.divider()
+        item = queue[0]
+        if item["kind"] == "suggestion":
+            suggestion_index = _find_suggestion_by_locator(
+                suggestions, item["locator"]
+            )
+            if suggestion_index is not None:
+                suggestion = suggestions[suggestion_index]
+                _render_new_event_editor(
+                    draft,
+                    suggestion.time_s,
+                    suggestion.reference_sxr,
+                    available_sxr,
+                    state_key,
+                    f"suggestion::{suggestion.source}::{suggestion.time_s:.12f}",
+                    visible_sxr=suggestion.source_channels,
+                    suggestion=suggestion,
+                )
+        elif item["kind"] == "event":
+            event_index = _find_event_by_locator(draft["events"], item["locator"])
+            if event_index is not None:
+                _render_event_editor(draft, event_index, available_sxr, state_key)
+        elif item["kind"] == "point":
+            _render_new_event_editor(
+                draft,
+                float(item["time_s"]),
+                item.get("reference_sxr"),
+                available_sxr,
+                state_key,
+                f"point::{float(item['time_s']):.12f}",
+            )
+
+#
+# def _render_log_panel() -> None:
+#     with st.expander("Лог интерфейса", expanded=False):
+#         log_path = Path(DEFAULT_ANNOTATION_UI_LOG_PATH)
+#         if st.button("Обновить лог", width="stretch", key="refresh_annotation_log"):
+#             pass
+#         if not log_path.is_file():
+#             st.caption("Лог появится после первой загрузки SHT.")
+#             return
+#         lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+#         st.code("\n".join(lines[-120:]) or "Лог пока пуст", language="text")
+
 
 def main() -> None:
     st.set_page_config(page_title="SXR expert annotation", layout="wide")
 
     with st.sidebar:
         st.header("Файлы")
-        with st.expander("Пути к данным", expanded=False):
+        with st.expander("Источники данных", expanded=False):
             pseudo_path = st.text_input("Wavelet-разметка", DEFAULT_PSEUDO_LABELS_PATH)
             annotation_path = st.text_input("Экспертная разметка", DEFAULT_EXPERT_LABELS_PATH)
-            model_path = st.text_input("ML-модель (необязательно)", DEFAULT_MODEL_PATH)
+            source_dir_override = st.text_input(
+                "Каталог SHT",
+                "",
+                placeholder="Пусто — использовать source_dir из wavelet JSON",
+            ).strip()
 
-    try:
-        pseudo = load_pseudo_labels(pseudo_path)
-        document = load_annotation_document(annotation_path)
-        expert = parse_expert_labels(document.payload)
-    except Exception as exc:
-        st.error(f"Не удалось загрузить данные разметки: {exc}")
-        st.stop()
+        try:
+            pseudo = load_pseudo_labels(pseudo_path)
+            document = load_annotation_document(annotation_path)
+            expert = parse_expert_labels(document.payload)
+        except Exception as exc:
+            st.error(f"Не удалось загрузить данные разметки: {exc}")
+            st.stop()
 
-    catalog = build_shot_catalog(pseudo, expert)
-    with st.sidebar:
-        search_query = st.text_input(
-            "Поиск по имени файла",
-            placeholder="sht41114 или easy/",
-        ).strip().casefold()
-        categories = sorted({item.category for item in catalog}, key=str.casefold)
-        with st.expander("Фильтры", expanded=False):
+        catalog = build_shot_catalog(pseudo, expert)
+        with st.expander("Поиск и фильтры", expanded=True):
+            search_query = st.text_input(
+                "Поиск по имени файла",
+                placeholder="sht41114 или easy/",
+            ).strip().casefold()
+            categories = sorted({item.category for item in catalog}, key=str.casefold)
             selected_categories = st.multiselect(
                 "Категории", categories, default=categories
             )
@@ -671,29 +2035,29 @@ def main() -> None:
                 "Статус",
                 ["Все", "Только неразмеченные", "Только размеченные"],
             )
-        filtered = [item for item in catalog if item.category in selected_categories]
-        if search_query:
-            filtered = [
-                item
+            filtered = [item for item in catalog if item.category in selected_categories]
+            if search_query:
+                filtered = [
+                    item
+                    for item in filtered
+                    if search_query in item.shot_id.casefold()
+                    or search_query in item.relative_path.casefold()
+                    or search_query in Path(item.relative_path).name.casefold()
+                ]
+            if status_filter == "Только неразмеченные":
+                filtered = [item for item in filtered if not item.is_annotated]
+            elif status_filter == "Только размеченные":
+                filtered = [item for item in filtered if item.is_annotated]
+            if not filtered:
+                st.warning("Нет файлов с выбранными фильтрами")
+                st.stop()
+            labels = {
+                f"{'✓' if item.is_annotated else '○'} {Path(item.relative_path).name} · "
+                f"{item.category} · {item.split} · teacher={item.teacher_event_count}": item
                 for item in filtered
-                if search_query in item.shot_id.casefold()
-                or search_query in item.relative_path.casefold()
-                or search_query in Path(item.relative_path).name.casefold()
-            ]
-        if status_filter == "Только неразмеченные":
-            filtered = [item for item in filtered if not item.is_annotated]
-        elif status_filter == "Только размеченные":
-            filtered = [item for item in filtered if item.is_annotated]
-        if not filtered:
-            st.warning("Нет файлов с выбранными фильтрами")
-            st.stop()
-        labels = {
-            f"{'✓' if item.is_annotated else '○'} {Path(item.relative_path).name} · "
-            f"{item.category} · {item.split} · teacher={item.teacher_event_count}": item
-            for item in filtered
-        }
-        selected_label = st.selectbox("Файл", list(labels))
-        shot = labels[selected_label]
+            }
+            selected_label = st.selectbox("Файл", list(labels))
+            shot = labels[selected_label]
 
     teacher_by_id = {item.shot_id: item for item in pseudo.train + pseudo.validation}
     teacher_shot = teacher_by_id[shot.shot_id]
@@ -706,13 +2070,21 @@ def main() -> None:
         )
         st.session_state.selected_time_s = None
         st.session_state.selected_channel = None
-        st.session_state.computed_suggestions = ()
         st.session_state.selected_event_locator = None
         st.session_state.selected_suggestion_locator = None
         st.session_state.last_plot_selection = None
+        st.session_state.work_queue = []
+        st.session_state.action_mode = "inspect"
+        st.session_state.plot_selection_warning = None
+    if "work_queue" not in st.session_state:
+        st.session_state.work_queue = []
+    if "action_mode" not in st.session_state:
+        st.session_state.action_mode = "inspect"
+    if "plot_selection_warning" not in st.session_state:
+        st.session_state.plot_selection_warning = None
     draft = st.session_state.annotation_draft
 
-    source_dir = pseudo.source_dir
+    source_dir = source_dir_override or pseudo.source_dir
     try:
         available = _available_channels(source_dir, shot.relative_path)
     except Exception as exc:
@@ -720,22 +2092,79 @@ def main() -> None:
         st.stop()
 
     with st.sidebar:
-        with st.expander("График и автометки", expanded=True):
-            selected_channels = st.multiselect(
-                "Отображаемые каналы",
-                available,
-                default=default_display_channels(available),
-                help="Можно добавить D-alpha, МГД и другие каналы этого SHT.",
-                key=f"channels::{state_key}",
+        with st.expander("Каналы", expanded=True):
+            channel_state_key = f"channels::{state_key}"
+            if channel_state_key not in st.session_state:
+                st.session_state[channel_state_key] = default_display_channels(available)
+
+            selected_channel_set = {
+                name for name in st.session_state[channel_state_key] if name in available
+            }
+
+            channel_search_key = f"channel_search::{state_key}"
+            active_search = str(st.session_state.get(channel_search_key, ""))
+            active_query = active_search.strip().casefold()
+            active_matches = sorted(
+                (name for name in available if active_query in name.casefold()),
+                key=str.casefold,
             )
-            include_posr = st.checkbox("Raw POSR", True, key=f"posr::{state_key}")
-            include_cpd = st.checkbox("Raw CPD", True, key=f"cpd::{state_key}")
-            include_ml = st.checkbox(
-                "Feature-ML",
-                Path(model_path).is_file(),
-                key=f"ml::{state_key}",
+            pills_key_prefix = f"channel_pills::{state_key}::"
+            pills_query_key = f"channel_pills_query::{state_key}"
+            if st.session_state.get(pills_query_key) != active_query:
+                for session_key in list(st.session_state):
+                    if str(session_key).startswith(pills_key_prefix):
+                        del st.session_state[session_key]
+                st.session_state[pills_query_key] = active_query
+            active_pills_key = (
+                f"{pills_key_prefix}"
+                f"{sha256(active_query.encode('utf-8')).hexdigest()[:12]}"
             )
-            calculate = st.button("Рассчитать автометки", width="stretch")
+            # Pill values are updated by Streamlit before the rerun starts.
+            # Reconcile the currently visible subset before drawing the summary.
+            if active_pills_key in st.session_state:
+                selected_channel_set.difference_update(active_matches)
+                selected_channel_set.update(st.session_state[active_pills_key] or [])
+
+            selected_channels = [
+                name for name in available if name in selected_channel_set
+            ]
+            st.session_state[channel_state_key] = selected_channels
+
+            channel_search = st.text_input(
+                "Поиск по названию канала",
+                placeholder="SXR, D-alfa, МГД...",
+                key=channel_search_key,
+            ).strip().casefold()
+            matching_channels = sorted(
+                (name for name in available if channel_search in name.casefold()),
+                key=str.casefold,
+            )
+            st.caption(f"Доступные каналы: {len(matching_channels)} из {len(available)}")
+            with st.container(height=300, border=True):
+                if not matching_channels:
+                    st.info("Каналы с таким названием не найдены")
+                else:
+                    pills_key = (
+                        f"{pills_key_prefix}"
+                        f"{sha256(channel_search.encode('utf-8')).hexdigest()[:12]}"
+                    )
+                    visible_selection = st.pills(
+                        "Доступные каналы",
+                        matching_channels,
+                        selection_mode="multi",
+                        default=[
+                            name for name in matching_channels if name in selected_channel_set
+                        ],
+                        key=pills_key,
+                        label_visibility="collapsed",
+                    )
+                    selected_channel_set.difference_update(matching_channels)
+                    selected_channel_set.update(visible_selection or [])
+
+            selected_channels = [
+                name for name in available if name in selected_channel_set
+            ]
+            st.session_state[channel_state_key] = selected_channels
     if not selected_channels:
         st.warning("Выберите хотя бы один канал")
         st.stop()
@@ -743,313 +2172,118 @@ def main() -> None:
     plot_data, full_start, full_end = _plot_channel_data(
         source_dir, shot.relative_path, tuple(selected_channels)
     )
-    if calculate:
-        try:
-            st.session_state.computed_suggestions = _computed_suggestions(
+    natural_y_ranges = _natural_y_ranges(plot_data)
+    plotted_channels = tuple(plot_data)
+    _consume_plot_viewport(state_key, plotted_channels)
+    plot_token = _plot_viewport_token(state_key)
+    with st.sidebar:
+        (
+            signal_height,
+            display_start,
+            display_end,
+            show_grid,
+            allowed_x_range,
+            y_ranges,
+            active_y_channel,
+        ) = (
+            _render_graph_view_controls(
                 source_dir,
                 shot.relative_path,
-                include_posr,
-                include_cpd,
-                model_path if include_ml else "",
+                state_key,
+                full_start,
+                full_end,
+                natural_y_ranges,
             )
-        except Exception as exc:
-            st.error(f"Ошибка расчёта автометок: {exc}")
-    suggestions = (
-        *_teacher_suggestions(teacher_shot),
-        *st.session_state.computed_suggestions,
-    )
-
-    with st.sidebar:
-        _render_decision_sidebar(
-            draft,
-            state_key,
-            full_start,
-            full_end,
-            annotation_path,
-            shot.shot_id,
         )
+        # _render_log_panel()
+    suggestions = _teacher_suggestions(teacher_shot)
 
     st.title("Экспертная разметка SXR")
-    st.caption(
-        f"{shot.relative_path} · {shot.category} · {shot.split}. "
-        "Кликните по сигналу или маркеру; колесо мыши масштабирует, перетаскивание сдвигает."
+    st.markdown(
+        '<div class="annotation-shot-meta">'
+        f"{escape(shot.relative_path)} · {escape(shot.category)} · "
+        f"{escape(shot.split)}"
+        "</div>",
+        unsafe_allow_html=True,
     )
     flash = st.session_state.pop("annotation_flash", None)
     if flash:
         level, message = flash
         getattr(st, level)(message)
 
-    action_mode = st.radio(
-        "Действие при клике",
-        list(ACTION_LABELS),
-        format_func=ACTION_LABELS.get,
-        horizontal=True,
-        key=f"plot_action::{state_key}",
-    )
-    action_help = {
-        "inspect": "Выберите точку или маркер — ниже появятся контекстные действия.",
-        "add_sawtooth": "Клик по сигналу или автометке сразу добавит срыв.",
-        "add_uncertain": "Клик по сигналу или автометке сразу добавит неуверенную метку.",
-        "reject": "Кликните по маркеру Teacher, POSR, CPD или ML, чтобы отклонить его.",
-    }
-    st.caption(action_help[action_mode])
+    action_mode = st.session_state.action_mode
+    graph_column, workspace_column = st.columns([2.1, 1.0], gap="medium")
 
-    figure, trace_targets = _build_figure(plot_data, draft, suggestions)
-    plot_state = st.plotly_chart(
-        figure,
-        width="stretch",
-        on_select="rerun",
-        selection_mode="points",
-        key=f"annotation_plot::{shot.shot_id}",
-        config={"scrollZoom": True, "displaylogo": False},
-    )
-    points = _selection_points(plot_state)
-    if points:
-        point = points[-1]
-        curve = _curve_number(point)
-        point_number = _point_number(point)
-        if 0 <= curve < len(trace_targets):
-            target = trace_targets[curve]
-            time_s = float(point["x"])
-            signature = (curve, point_number, round(time_s, 12))
-            if signature != st.session_state.last_plot_selection:
-                st.session_state.last_plot_selection = signature
-                st.session_state.selected_time_s = time_s
-                reference_sxr = None
-                suggestion = None
-                if target["kind"] == "signal":
-                    reference_sxr = target["channel"]
-                    st.session_state.selected_channel = reference_sxr
-                    st.session_state.selected_event_locator = None
-                    st.session_state.selected_suggestion_locator = None
-                elif point_number < len(target.get("indices", [])):
-                    target_index = target["indices"][point_number]
-                    if target["kind"] == "suggestion":
-                        suggestion = suggestions[target_index]
-                        reference_sxr = suggestion.reference_sxr
-                        st.session_state.selected_suggestion_locator = _suggestion_locator(
-                            suggestion
-                        )
-                        st.session_state.selected_event_locator = None
-                    else:
-                        event = draft["events"][target_index]
-                        reference_sxr = event.get("reference_sxr")
-                        st.session_state.selected_event_locator = _event_locator(event)
-                        st.session_state.selected_suggestion_locator = None
-                        st.session_state.sync_editor_selection = True
-
-                if action_mode in {"add_sawtooth", "add_uncertain"}:
-                    label = (
-                        "sawtooth" if action_mode == "add_sawtooth" else "uncertain"
-                    )
-                    _add_from_ui(draft, time_s, label, reference_sxr)
-                    st.rerun()
-                if action_mode == "reject":
-                    if suggestion is None:
-                        _set_flash(
-                            "warning",
-                            "Для отклонения выберите маркер Teacher, POSR, CPD или ML.",
-                        )
-                    else:
-                        _reject_from_ui(draft, suggestion)
-                    st.rerun()
-
-    events = draft["events"]
-    selected_suggestion_index = _find_suggestion_by_locator(
-        suggestions, st.session_state.selected_suggestion_locator
-    )
-    selected_event_index = _find_event_by_locator(
-        events, st.session_state.selected_event_locator
-    )
-
-    with st.container(border=True):
-        if selected_suggestion_index is not None:
-            suggestion = suggestions[selected_suggestion_index]
-            st.markdown(
-                f"**{SOURCE_LABELS[suggestion.source]}** · {suggestion.time_s:.6f} s · "
-                f"score={suggestion.score:.3g}"
-            )
-            accept_col, uncertain_col, reject_col = st.columns(3)
-            if accept_col.button("Принять как срыв", width="stretch"):
-                _add_from_ui(
-                    draft, suggestion.time_s, "sawtooth", suggestion.reference_sxr
-                )
-                st.rerun()
-            if uncertain_col.button("Принять как неуверенную", width="stretch"):
-                _add_from_ui(
-                    draft, suggestion.time_s, "uncertain", suggestion.reference_sxr
-                )
-                st.rerun()
-            if reject_col.button("Ложное срабатывание", width="stretch"):
-                _reject_from_ui(draft, suggestion)
-                st.rerun()
-        elif (
-            selected_event_index is not None
-            and events[selected_event_index]["label"] == "false_positive"
-        ):
-            rejected = events[selected_event_index]
-            st.markdown(
-                f"**Ложное срабатывание** · {float(rejected['time_s']):.6f} s · "
-                f"{SOURCE_LABELS.get(rejected.get('source'), rejected.get('source', ''))}"
-            )
-            if st.button("Отменить отклонение"):
-                events.pop(selected_event_index)
-                st.session_state.selected_event_locator = None
-                _set_flash("success", "Отклонение отменено")
-                st.rerun()
-        elif st.session_state.selected_time_s is not None:
-            selected_time = float(st.session_state.selected_time_s)
-            selected_channel = st.session_state.selected_channel
-            st.markdown(
-                f"**Выбранная точка:** {selected_time:.6f} s"
-                + (f" · {selected_channel}" if selected_channel else "")
-            )
-            add_col, uncertain_col = st.columns(2)
-            if add_col.button("Добавить срыв", width="stretch"):
-                _add_from_ui(draft, selected_time, "sawtooth", selected_channel)
-                st.rerun()
-            if uncertain_col.button("Добавить неуверенную", width="stretch"):
-                _add_from_ui(draft, selected_time, "uncertain", selected_channel)
-                st.rerun()
-        else:
-            st.caption(
-                "Выберите точку на сигнале или маркер на дорожке «Метки»."
-            )
-
-    st.subheader("Точная правка ручной метки")
-    editable_indices = [
-        index for index, event in enumerate(events) if event["label"] != "false_positive"
-    ]
-    available_sxr = [name for name in SXR_CHANNELS if name in available]
-    if editable_indices:
-        editor_key = f"event_editor::{state_key}"
-        if st.session_state.pop("sync_editor_selection", False):
-            selected_event_index = _find_event_by_locator(
-                events, st.session_state.selected_event_locator
-            )
-            if selected_event_index in editable_indices:
-                st.session_state[editor_key] = selected_event_index
-        if st.session_state.get(editor_key) not in editable_indices:
-            st.session_state[editor_key] = editable_indices[0]
-        edit_index = st.selectbox(
-            "Метка",
-            editable_indices,
-            format_func=lambda index: _event_option(index, events[index]),
-            key=editor_key,
+    with graph_column:
+        figure, trace_targets = _build_figure(
+            plot_data,
+            draft,
+            suggestions,
+            work_queue=st.session_state.work_queue,
+            signal_height=signal_height,
+            action_mode=action_mode,
+            display_range=(display_start, display_end),
+            show_grid=show_grid,
+            allowed_x_range=allowed_x_range,
+            y_ranges=y_ranges,
+            plot_token=plot_token,
         )
-        existing = events[edit_index]
-        editor_revision = _event_locator(existing)
-        with st.form(f"event_editor_form::{state_key}::{editor_revision}"):
-            row = st.columns([1.2, 1.2, 1, 1.8, 1.2])
-            event_time = row[0].number_input(
-                "Время, s", value=float(existing["time_s"]), format="%.6f"
-            )
-            event_label = row[1].selectbox(
-                "Тип",
-                ["sawtooth", "uncertain"],
-                index=["sawtooth", "uncertain"].index(existing["label"]),
-                format_func=EVENT_LABELS.get,
-            )
-            tolerance_ms = row[2].number_input(
-                "Допуск, ms",
-                min_value=0.001,
-                value=float(existing.get("tolerance_s", 0.0003)) * 1e3,
-                format="%.3f",
-            )
-            initial_reference = existing.get("reference_sxr")
-            reference_sxr = (
-                row[3].selectbox(
-                    "Опорный SXR",
-                    available_sxr,
-                    index=(
-                        available_sxr.index(initial_reference)
-                        if initial_reference in available_sxr
-                        else 0
-                    ),
-                )
-                if available_sxr
-                else None
-            )
-            confidence = row[4].selectbox(
-                "Уверенность",
-                ["certain", "uncertain"],
-                index=1 if existing.get("confidence") == "uncertain" else 0,
-                format_func={
-                    "certain": "Уверена",
-                    "uncertain": "Не уверена",
-                }.get,
-            )
-            details = st.columns([2, 2])
-            initial_visible = [
-                name for name in existing.get("visible_sxr", []) if name in available_sxr
-            ]
-            visible_sxr = details[0].multiselect(
-                "Где видна метка",
-                available_sxr,
-                default=initial_visible,
-            )
-            event_note = details[1].text_input(
-                "Комментарий", existing.get("note", "")
-            )
-            if st.form_submit_button("Обновить метку", type="primary"):
-                visible = list(
-                    dict.fromkeys(
-                        name for name in [reference_sxr, *visible_sxr] if name
-                    )
-                )
-                updated = {
-                    "time_s": float(event_time),
-                    "label": event_label,
-                    "tolerance_s": float(tolerance_ms) * 1e-3,
-                    "confidence": (
-                        "uncertain" if event_label == "uncertain" else confidence
-                    ),
-                    "reference_sxr": reference_sxr,
-                    "visible_sxr": visible,
-                    "note": event_note,
-                }
-                events[edit_index] = updated
-                events.sort(key=lambda item: float(item["time_s"]))
-                _ensure_local_review(draft, event_time, updated["tolerance_s"])
-                st.session_state.selected_event_locator = _event_locator(updated)
-                st.session_state.sync_editor_selection = True
-                if event_label == "sawtooth":
-                    st.session_state.pending_shot_label = "sawtooth"
-                _set_flash("success", "Метка обновлена")
-                st.rerun()
-        if st.button("Удалить эту метку", key=f"delete_event::{state_key}"):
-            events.pop(edit_index)
-            st.session_state.selected_event_locator = None
-            _set_flash("success", "Метка удалена")
-            st.rerun()
-    else:
-        st.caption(
-            "Ручных меток пока нет. Добавьте первую кликом по графику."
+        view_revision = _plot_view_revision(
+            source_dir,
+            plotted_channels,
+            signal_height,
+            display_start,
+            display_end,
+            show_grid,
+            y_ranges,
+        )
+        plot_key = (
+            f"annotation_plot::{shot.shot_id}::{action_mode}::{view_revision}"
         )
 
-    with st.expander("Добавить по точному времени", expanded=False):
-        exact_columns = st.columns([2, 2, 3])
-        exact_time = exact_columns[0].number_input(
-            "Время, s",
-            value=float(st.session_state.selected_time_s or full_start),
-            format="%.6f",
-            key=f"exact_time::{state_key}",
-        )
-        exact_label = exact_columns[1].selectbox(
-            "Тип",
-            ["sawtooth", "uncertain"],
-            format_func=EVENT_LABELS.get,
-            key=f"exact_label::{state_key}",
-        )
-        if exact_columns[2].button(
-            "Добавить",
+        def handle_plot_selection() -> None:
+            _queue_plot_selection(
+                _selection_points(st.session_state.get(plot_key)),
+                trace_targets,
+                suggestions,
+                draft,
+                action_mode,
+            )
+
+        st.plotly_chart(
+            figure,
             width="stretch",
-            key=f"exact_add::{state_key}",
-        ):
-            reference_sxr = (
-                st.session_state.selected_channel
-                if st.session_state.selected_channel in available_sxr
-                else (available_sxr[0] if available_sxr else None)
+            on_select=handle_plot_selection,
+            selection_mode="points",
+            key=plot_key,
+            config={"scrollZoom": True, "displaylogo": False},
+        )
+        render_plot_viewport_listener(
+            plot_token=plot_token,
+            y_axes={
+                ("yaxis" if row == 1 else f"yaxis{row}"): name
+                for row, name in enumerate(plotted_channels, 1)
+            },
+            active_y_channel=active_y_channel,
+            key=_plot_viewport_listener_key(state_key),
+        )
+
+    with workspace_column:
+        with st.container(border=True):
+            action_mode = _render_action_buttons(state_key)
+            _render_workspace(
+                draft,
+                suggestions,
+                [name for name in SXR_CHANNELS if name in available],
+                state_key,
+                full_start,
+                action_mode,
             )
-            _add_from_ui(draft, exact_time, exact_label, reference_sxr)
-            st.rerun()
+            _render_decision_sidebar(
+                draft,
+                state_key,
+                full_start,
+                full_end,
+                annotation_path,
+                shot.shot_id,
+            )
