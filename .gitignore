@@ -1,3 +1,12 @@
 **/__pycache__/
 .venv/
 .idea/
+*.json.lock
+catboost_info/
+data/dataset/feature_candidates_*.npz
+data/dataset/feature_ml_candidates_*.json
+data/model_data/*.joblib
+data/model_data/*.json
+data/model_data/metrics/*.json
+data/process/
+logs/*.log
