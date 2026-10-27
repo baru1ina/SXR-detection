@@ -1,8 +1,4 @@
-# source_dir="data/raw/test"
-# source_dir="data/raw/easy"
 source_dir="data/raw/medium"
-# source_dir="data/raw/hard"
-# source_dir="data/raw/notSaw"
 
 SXR_CHANNELS = [
     "SXR 15 мкм",
@@ -19,15 +15,16 @@ ALL_CHANNELS = SXR_CHANNELS + [IP_CHANNEL]
 PATH_TO_RES_AUTOCORR = 'data/process/autocorr'
 PATH_TO_RES_TEMP = 'data/process/temp_res'
 
-# Feature-ML artifacts.  Pseudo-labels do not depend on the proposal source;
-# downstream artifacts include it so experimental models cannot be confused.
 DEFAULT_PSEUDO_LABELS_PATH = "data/dataset/wavelet_pseudo_labels.json"
 DEFAULT_EXPERT_LABELS_PATH = "data/annotations/expert_events.json"
 DEFAULT_ANNOTATION_UI_LOG_PATH = "logs/annotation_ui.log"
+DEFAULT_POSTPROCESSING_EVAL_PATH = (
+    "data/process/feature_ml_postprocessing_comparison.json"
+)
 FEATURE_ML_PROPOSAL_SOURCES = ("posr", "cpd", "hybrid")
 DEFAULT_FEATURE_ML_PROPOSAL_SOURCE = "posr"
 DEFAULT_FEATURE_ML_BACKEND = "sklearn_hgb"
-DEFAULT_FEATURE_ML_PROFILE = "full"
+DEFAULT_FEATURE_ML_PROFILE = "core_diagnostics"
 
 
 def feature_ml_artifact_paths(
@@ -62,14 +59,10 @@ def feature_ml_artifact_paths(
             f"{feature_profile}.joblib"
         ),
         "metrics": (
-            f"data/model_data/feature_ml_metrics_{proposal_source}_{model_name}_"
+            f"data/model_data/metrics/feature_ml_metrics_{proposal_source}_{model_name}_"
             f"{feature_profile}.json"
         ),
     }
 
 
-_DEFAULT_FEATURE_ML_PATHS = feature_ml_artifact_paths()
-DEFAULT_CANDIDATES_PATH = _DEFAULT_FEATURE_ML_PATHS["candidates"]
-DEFAULT_FEATURES_PATH = _DEFAULT_FEATURE_ML_PATHS["features"]
-DEFAULT_MODEL_PATH = _DEFAULT_FEATURE_ML_PATHS["model"]
-DEFAULT_METRICS_PATH = _DEFAULT_FEATURE_ML_PATHS["metrics"]
+DEFAULT_MODEL_PATH = feature_ml_artifact_paths()["model"]

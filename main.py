@@ -4,6 +4,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from config.path import (
     DEFAULT_EXPERT_LABELS_PATH,
+    DEFAULT_FEATURE_ML_PROFILE,
     DEFAULT_MODEL_PATH,
     DEFAULT_PSEUDO_LABELS_PATH,
     SXR_CHANNELS,
@@ -39,6 +40,7 @@ def main(
     min_channels: int = 2,
     coincidence_window: float = 0.3e-3,
     downsample: int = 10,
+    ml_downsample: int = 5,
     plot: bool = True,
     debug: bool = False,
     penalty: float = 3.0,
@@ -50,8 +52,14 @@ def main(
     posr_score_threshold: float = 2.5,
     model_path: Optional[str] = None,
     probability_threshold: Optional[float] = None,
-    ml_proposal_threshold: float = 3.0,
-    ml_proposal_coincidence_window: float = 0.15e-3,
+    ml_proposal_threshold: float = 1.0,
+    ml_event_merge_window: float = 0.5e-3,
+    ml_event_merge_strategy: str = "adaptive_period",
+    ml_event_merge_period_fraction: float = 0.50,
+    ml_event_merge_min_radius: float = 0.12e-3,
+    ml_event_merge_max_radius: float = 0.80e-3,
+    ml_event_merge_confidence_threshold: float = 0.20,
+    ml_proposal_coincidence_window: float = 0.10e-3,
     ml_proposal_source: str = "posr",
     ml_cpd_penalty: float = 3.0,
     ml_cpd_model: str = "rbf",
@@ -61,7 +69,7 @@ def main(
     features_output: Optional[str] = None,
     metrics_output: Optional[str] = None,
     ml_backend: str = "sklearn_hgb",
-    ml_feature_profile: str = "full",
+    ml_feature_profile: str = DEFAULT_FEATURE_ML_PROFILE,
     ml_plateau_level_fraction: float = 0.8,
     ml_plateau_hold: float = 0.5e-3,
     random_state: int = 42,
@@ -92,8 +100,9 @@ def main(
                 metrics_output=metrics_output,
                 backend=ml_backend,
                 random_state=random_state,
-                downsample=downsample,
+                downsample=ml_downsample,
                 posr_threshold=ml_proposal_threshold,
+                event_merge_window_s=ml_event_merge_window,
                 proposal_source=ml_proposal_source,
                 cpd_penalty=ml_cpd_penalty,
                 cpd_model=ml_cpd_model,
@@ -144,7 +153,6 @@ def main(
                 source_dir=resolved_source_dir,
                 filename=filename,
                 logger=logger,
-                path_to_load="./data",
                 channel_name=selected_channel,
             )
 
@@ -199,6 +207,14 @@ def main(
                     **common_kwargs,
                     model_path=model_path,
                     probability_threshold=probability_threshold,
+                    event_merge_window_s=ml_event_merge_window,
+                    event_merge_strategy=ml_event_merge_strategy,
+                    event_merge_period_fraction=ml_event_merge_period_fraction,
+                    event_merge_min_radius_s=ml_event_merge_min_radius,
+                    event_merge_max_radius_s=ml_event_merge_max_radius,
+                    event_merge_confidence_threshold=(
+                        ml_event_merge_confidence_threshold
+                    ),
                     multichannel=multichannel,
                     min_channels=min_channels,
                     plot=plot,
@@ -225,8 +241,6 @@ def parse_cli_args():
         help="Detection method, or feature_ml for mode=train",
     )
 
-    #TODO: добавить сда  парсинг аргументов wavelet_raw_peak_distance, wavelet_distance_factor, crash_time_min
-
     parser.add_argument("--file", nargs="+", help="SHT filenames for detection")
     parser.add_argument(
         "--source_dir",
@@ -248,6 +262,12 @@ def parse_cli_args():
     parser.add_argument("--min_channels", type=int, default=2)
     parser.add_argument("--coincidence_window", type=float, default=0.3e-3, help="Voting window in seconds")
     parser.add_argument("--downsample", type=int, default=10)
+    parser.add_argument(
+        "--ml_downsample",
+        type=int,
+        default=5,
+        help="Training-only feature-ML proposal downsample",
+    )
     parser.add_argument("--no_plot", action="store_true")
     parser.add_argument("--debug", action="store_true")
 
@@ -274,8 +294,46 @@ def parse_cli_args():
     parser.add_argument(
         "--ml_proposal_threshold",
         type=float,
-        default=3.0,
+        default=1.0,
         help="Training-only raw POSR proposal threshold",
+    )
+    parser.add_argument(
+        "--ml_event_merge_window",
+        type=float,
+        default=0.5e-3,
+        help=(
+            "Fallback fixed merge gap in seconds when no trusted local period exists"
+        ),
+    )
+    parser.add_argument(
+        "--ml_event_merge_strategy",
+        choices=("adaptive_period", "fixed", "statistical"),
+        default="adaptive_period",
+        help="Post-ML candidate consolidation strategy",
+    )
+    parser.add_argument(
+        "--ml_event_merge_period_fraction",
+        type=float,
+        default=0.50,
+        help="Adaptive NMS radius as a fraction of the trusted local period",
+    )
+    parser.add_argument(
+        "--ml_event_merge_min_radius",
+        type=float,
+        default=0.12e-3,
+        help="Minimum adaptive NMS radius in seconds",
+    )
+    parser.add_argument(
+        "--ml_event_merge_max_radius",
+        type=float,
+        default=0.80e-3,
+        help="Maximum adaptive NMS radius in seconds",
+    )
+    parser.add_argument(
+        "--ml_event_merge_confidence_threshold",
+        type=float,
+        default=0.20,
+        help="Minimum local-period confidence used by adaptive NMS",
     )
     parser.add_argument(
         "--ml_proposal_coincidence_window",
@@ -324,7 +382,7 @@ def parse_cli_args():
     parser.add_argument(
         "--ml_feature_profile",
         choices=("reference_sxr", "core_diagnostics", "full"),
-        default="full",
+        default=DEFAULT_FEATURE_ML_PROFILE,
         help="Training-only feature map; detection reads it from the model",
     )
     parser.add_argument(
@@ -437,7 +495,7 @@ if __name__ == "__main__":
 
         import os
         test_files_channels = []
-        for file in os.listdir("data/raw/random"):
+        for file in os.listdir("data/raw/test_only"):
             test_files_channels.append((str(file), "SXR 50 mkm"))
 
         # wt_thresholds = [2.0, 2.0]
@@ -470,24 +528,24 @@ if __name__ == "__main__":
         #
         main(
             mode="detect",
-            source_dir="data/raw/random",
+            source_dir="data/raw/test_only",
             method="feature_ml",
-            model_path="data/model_data/feature_ml_posr_sklearn_hgb_full.joblib",
+            model_path="data/model_data/feature_ml_posr_sklearn_hgb_core_diagnostics.joblib",
             files_channels=test_files_channels,
         )
 
         # main(
         #     mode="detect",
-        #     source_dir="data/raw/test1",
+        #     source_dir="data/raw/test_only",
         #     method="feature_ml",
-        #     model_path="data/model_data/feature_ml_posr_sklearn_hgb_core_diagnostics.joblib",
+        #     model_path="data/model_data/feature_ml_posr_sklearn_hgb_core_diagnostics_0.5.joblib",
         #     files_channels=test_files_channels,
         # )
 
         # main(
         #     mode="detect",
-        #     source_dir="data/raw/test1",
+        #     source_dir="data/raw/test_only",
         #     method="feature_ml",
-        #     model_path="data/model_data/feature_ml_posr_sklearn_hgb_reference_sxr.joblib",
+        #     model_path="data/model_data/feature_ml_posr_sklearn_hgb_reference_sxr_0.5.joblib",
         #     files_channels=test_files_channels,
         # )

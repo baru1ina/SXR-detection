@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
-from numpy.ma.core import angle, size
 from plotly.subplots import make_subplots
 import streamlit as st
 
@@ -74,6 +73,7 @@ ACTION_ICON_FILES = {
     "select_interval": "interval.png",
 }
 ANNOTATION_MEDIA_DIR = Path(__file__).resolve().with_name("media")
+EVENT_TOLERANCE_S = 0.3e-3
 
 
 def _canonical_shot_id(value: str) -> str:
@@ -492,12 +492,6 @@ def _add_manual_event(
     draft: dict,
     time_s: float,
     label: str,
-    reference_sxr: str | None,
-    *,
-    tolerance_s: float = 0.3e-3,
-    visible_sxr: list[str] | None = None,
-    confidence: str | None = None,
-    note: str = "",
 ) -> tuple[int, bool]:
     """Single entry point for graph, contextual, and exact-time additions."""
 
@@ -509,7 +503,6 @@ def _add_manual_event(
             index
             for index, event in enumerate(events)
             if event["label"] == label
-            and event.get("source") is None
             and abs(float(event["time_s"]) - float(time_s)) < 1e-12
         ),
         None,
@@ -517,22 +510,14 @@ def _add_manual_event(
     if duplicate_index is not None:
         return duplicate_index, False
 
-    visible = list(
-        dict.fromkeys(name for name in [reference_sxr, *(visible_sxr or [])] if name)
-    )
     event = {
         "time_s": float(time_s),
         "label": label,
-        "tolerance_s": float(tolerance_s),
-        "confidence": "uncertain" if label == "uncertain" else (confidence or "certain"),
-        "reference_sxr": reference_sxr,
-        "visible_sxr": visible,
-        "note": note,
     }
     events.append(event)
     events.sort(key=lambda item: float(item["time_s"]))
     event_index = events.index(event)
-    _ensure_local_review(draft, event["time_s"], event["tolerance_s"])
+    _ensure_local_review(draft, event["time_s"], EVENT_TOLERANCE_S)
     if label == "sawtooth":
         draft["shot_label"] = "sawtooth"
     return event_index, True
@@ -541,7 +526,6 @@ def _add_manual_event(
 def _reject_suggestion(
     draft: dict,
     suggestion: AutomaticSuggestion,
-    note: str = "",
 ) -> tuple[int, bool]:
     """Single entry point for all automatic-proposal rejections."""
 
@@ -551,7 +535,6 @@ def _reject_suggestion(
             index
             for index, event in enumerate(events)
             if event["label"] == "false_positive"
-            and event.get("source") == suggestion.source
             and abs(float(event["time_s"]) - suggestion.time_s) < 1e-12
         ),
         None,
@@ -559,21 +542,14 @@ def _reject_suggestion(
     if duplicate_index is not None:
         return duplicate_index, False
 
-    tolerance_s = 0.3e-3
     event = {
         "time_s": suggestion.time_s,
         "label": "false_positive",
-        "tolerance_s": tolerance_s,
-        "confidence": "certain",
-        "reference_sxr": suggestion.reference_sxr,
-        "visible_sxr": list(suggestion.source_channels),
-        "source": suggestion.source,
-        "note": note,
     }
     events.append(event)
     events.sort(key=lambda item: float(item["time_s"]))
     event_index = events.index(event)
-    _ensure_local_review(draft, suggestion.time_s, tolerance_s)
+    _ensure_local_review(draft, suggestion.time_s, EVENT_TOLERANCE_S)
     return event_index, True
 
 
@@ -583,15 +559,13 @@ def _teacher_suggestions(teacher_shot) -> tuple[AutomaticSuggestion, ...]:
             source="wavelet_teacher",
             time_s=float(event.time_s),
             score=float(event.score),
-            reference_sxr=teacher_shot.channel,
-            source_channels=tuple(event.metadata.get("source_channels", ())),
         )
-        for event in teacher_shot.events + teacher_shot.uncertain_events
+        for event in teacher_shot.events
     )
 
 
-def _event_locator(event: dict) -> tuple[str, str | None, float]:
-    return event["label"], event.get("source"), round(float(event["time_s"]), 12)
+def _event_locator(event: dict) -> tuple[str, float]:
+    return event["label"], round(float(event["time_s"]), 12)
 
 
 def _find_event_by_locator(events: list[dict], locator) -> int | None:
@@ -620,18 +594,8 @@ def _find_suggestion_by_locator(suggestions, locator) -> int | None:
     )
 
 
-def _event_option(index: int, event: dict) -> str:
-    label = "uncertain" if _is_uncertain_event(event) else event["label"]
-    return f"{index + 1}. {event['time_s']:.6f} s · {EVENT_LABELS[label]}"
-
-
 def _is_uncertain_event(event: dict) -> bool:
-    """Treat either the event type or its confidence as visual uncertainty."""
-
-    return (
-        event.get("label") == "uncertain"
-        or event.get("confidence") == "uncertain"
-    )
+    return event.get("label") == "uncertain"
 
 
 def _selection_points(plot_state) -> list[dict]:
@@ -821,8 +785,8 @@ def _build_figure(
             opacity=0.65,
         )
 
-    rejected_keys = {
-        (event.get("source"), round(float(event["time_s"]), 12))
+    rejected_times = {
+        round(float(event["time_s"]), 12)
         for event in draft["events"]
         if event["label"] == "false_positive"
     }
@@ -838,7 +802,7 @@ def _build_figure(
         if not indices:
             continue
         rejected = [
-            (source, round(float(suggestions[index].time_s), 12)) in rejected_keys
+            round(float(suggestions[index].time_s), 12) in rejected_times
             for index in indices
         ]
         selected = [
@@ -922,14 +886,7 @@ def _build_figure(
                     "color": "#00c8ff",
                 },
             },
-            text=[
-                SOURCE_LABELS.get(
-                    draft["events"][index].get("source"),
-                    draft["events"][index].get("source", ""),
-                )
-                for index in rejected_indices
-            ],
-            hovertemplate="Ложный срыв · %{text}<br>t=%{x:.6f} s<extra></extra>",
+            hovertemplate="Ложный срыв<br>t=%{x:.6f} s<extra></extra>",
         ),
         row=rail_row,
         col=1,
@@ -1111,23 +1068,6 @@ def _set_flash(level: str, message: str) -> None:
     st.session_state.annotation_flash = (level, message)
 
 
-def _select_added_event(events: list[dict], index: int) -> None:
-    st.session_state.selected_event_locator = _event_locator(events[index])
-    st.session_state.selected_suggestion_locator = None
-    st.session_state.sync_editor_selection = True
-
-
-def _add_from_ui(draft: dict, time_s: float, label: str, reference_sxr: str | None) -> None:
-    index, created = _add_manual_event(draft, time_s, label, reference_sxr)
-    _select_added_event(draft["events"], index)
-    if label == "sawtooth":
-        st.session_state.pending_shot_label = "sawtooth"
-    _set_flash(
-        "success" if created else "info",
-        f"Метка добавлена: {time_s:.6f} s" if created else "Такая метка уже есть",
-    )
-
-
 def _reject_from_ui(draft: dict, suggestion: AutomaticSuggestion) -> None:
     _, created = _reject_suggestion(draft, suggestion)
     _set_flash(
@@ -1184,21 +1124,13 @@ def _clear_work_queue() -> None:
 def _selection_overlay_items(work_queue: list[dict], draft: dict) -> list[dict]:
     """Resolve the visible time tolerance for every queued selection."""
 
-    events_by_locator = {
-        _event_locator(event): event for event in draft.get("events", [])
-    }
     items: list[dict] = []
     for item in work_queue:
-        tolerance_s = float(item.get("tolerance_s") or 0.3e-3)
-        if item["kind"] == "event":
-            event = events_by_locator.get(tuple(item["locator"]))
-            if event is not None:
-                tolerance_s = float(event.get("tolerance_s") or 0.3e-3)
         items.append(
             {
                 "kind": item["kind"],
                 "time_s": float(item["time_s"]),
-                "tolerance_s": tolerance_s,
+                "tolerance_s": EVENT_TOLERANCE_S,
             }
         )
     return items
@@ -1292,10 +1224,8 @@ def _queue_plot_selection(
             target_index = target["indices"][point_number]
             if target["kind"] == "suggestion":
                 suggestion = suggestions[target_index]
-                reference_sxr = suggestion.reference_sxr
             else:
                 event = draft["events"][target_index]
-                reference_sxr = event.get("reference_sxr")
 
         if action_mode == "add_sawtooth":
             queue_changed |= _enqueue_work_item(
@@ -1405,14 +1335,10 @@ def _apply_add_queue(draft: dict, label: str) -> tuple[int, int]:
     for item in st.session_state.work_queue:
         if item["kind"] not in {"point", "suggestion"}:
             continue
-        reference_sxr = item.get("reference_sxr")
-        if item["kind"] == "suggestion":
-            reference_sxr = item.get("reference_sxr", reference_sxr)
         _, created = _add_manual_event(
             draft,
             float(item["time_s"]),
             label,
-            reference_sxr,
         )
         created_count += int(created)
         duplicate_count += int(not created)
@@ -1455,8 +1381,6 @@ def _apply_accept_suggestion_queue(
             draft,
             suggestion.time_s,
             label,
-            suggestion.reference_sxr,
-            visible_sxr=list(suggestion.source_channels),
         )
         created_count += int(created)
     if label == "sawtooth" and created_count:
@@ -1552,7 +1476,6 @@ def _render_decision_sidebar(
 def _render_event_editor(
     draft: dict,
     event_index: int,
-    available_sxr: list[str],
     state_key: str,
 ) -> None:
     existing = draft["events"][event_index]
@@ -1563,20 +1486,6 @@ def _render_event_editor(
     with st.form(f"workspace_editor::{state_key}::{revision}"):
         event_time = st.number_input(
             "Время, s", value=float(existing["time_s"]), format="%.6f"
-        )
-        initial_reference = existing.get("reference_sxr")
-        reference_sxr = (
-            st.selectbox(
-                "Опорный SXR",
-                available_sxr,
-                index=(
-                    available_sxr.index(initial_reference)
-                    if initial_reference in available_sxr
-                    else 0
-                ),
-            )
-            if available_sxr
-            else None
         )
         mark_sawtooth = st.form_submit_button(
             "Пометить как срыв", type="primary", width="stretch"
@@ -1596,12 +1505,6 @@ def _render_event_editor(
         )
         delete_manual = st.form_submit_button(
             "Удалить ручные метки",
-            disabled=existing.get("source") is not None,
-            help=(
-                None
-                if existing.get("source") is None
-                else "Удаление доступно только для ручной метки."
-            ),
             width="stretch",
         )
         if delete_manual:
@@ -1611,27 +1514,13 @@ def _render_event_editor(
             st.rerun()
         if mark_sawtooth or mark_uncertain:
             event_label = "uncertain" if mark_uncertain else "sawtooth"
-            tolerance_s = 0.3e-3
-            initial_visible = [
-                name
-                for name in existing.get("visible_sxr", [])
-                if name in available_sxr
-            ]
-            visible = list(
-                dict.fromkeys(name for name in [reference_sxr, *initial_visible] if name)
-            )
             updated = {
                 "time_s": float(event_time),
                 "label": event_label,
-                "tolerance_s": tolerance_s,
-                "confidence": "uncertain" if event_label == "uncertain" else "certain",
-                "reference_sxr": reference_sxr,
-                "visible_sxr": visible,
-                "note": existing.get("note", ""),
             }
             draft["events"][event_index] = updated
             draft["events"].sort(key=lambda item: float(item["time_s"]))
-            _ensure_local_review(draft, event_time, updated["tolerance_s"])
+            _ensure_local_review(draft, event_time, EVENT_TOLERANCE_S)
             if event_label == "sawtooth":
                 st.session_state.pending_shot_label = "sawtooth"
             _clear_work_queue()
@@ -1642,32 +1531,13 @@ def _render_event_editor(
 def _render_new_event_editor(
     draft: dict,
     time_s: float,
-    reference_sxr: str | None,
-    available_sxr: list[str],
     state_key: str,
     key_suffix: str,
-    visible_sxr: tuple[str, ...] = (),
     suggestion: AutomaticSuggestion | None = None,
 ) -> None:
     st.markdown(f"**Редактирование метки около {float(time_s):.6f} s**")
     with st.form(f"new_event_editor::{state_key}::{key_suffix}"):
         event_time = st.number_input("Время, s", value=float(time_s), format="%.6f")
-        effective_reference = (
-            reference_sxr if reference_sxr in available_sxr else None
-        )
-        selected_reference = (
-            st.selectbox(
-                "Опорный SXR",
-                available_sxr,
-                index=(
-                    available_sxr.index(effective_reference)
-                    if effective_reference in available_sxr
-                    else 0
-                ),
-            )
-            if available_sxr
-            else None
-        )
         mark_sawtooth = st.form_submit_button(
             "Пометить как срыв", type="primary", width="stretch"
         )
@@ -1696,17 +1566,10 @@ def _render_new_event_editor(
             st.rerun()
         if mark_sawtooth or mark_uncertain:
             event_label = "uncertain" if mark_uncertain else "sawtooth"
-            automatic_visible_sxr = [
-                name for name in visible_sxr if name in available_sxr
-            ]
             index, created = _add_manual_event(
                 draft,
                 float(event_time),
                 event_label,
-                selected_reference,
-                tolerance_s=0.3e-3,
-                visible_sxr=automatic_visible_sxr,
-                confidence="uncertain" if event_label == "uncertain" else "certain",
             )
             if event_label == "sawtooth" and created:
                 st.session_state.pending_shot_label = "sawtooth"
@@ -1773,7 +1636,6 @@ def _render_workspace(
             if item["kind"] == "boundary"
         )
         if len(boundaries) < 2:
-            # st.info("Поставьте две границы кликами по графику.")
             pass
         else:
             interval_start_key = f"selection_interval_start::{state_key}"
@@ -1965,39 +1827,21 @@ def _render_workspace(
                 _render_new_event_editor(
                     draft,
                     suggestion.time_s,
-                    suggestion.reference_sxr,
-                    available_sxr,
                     state_key,
                     f"suggestion::{suggestion.source}::{suggestion.time_s:.12f}",
-                    visible_sxr=suggestion.source_channels,
                     suggestion=suggestion,
                 )
         elif item["kind"] == "event":
             event_index = _find_event_by_locator(draft["events"], item["locator"])
             if event_index is not None:
-                _render_event_editor(draft, event_index, available_sxr, state_key)
+                _render_event_editor(draft, event_index, state_key)
         elif item["kind"] == "point":
             _render_new_event_editor(
                 draft,
                 float(item["time_s"]),
-                item.get("reference_sxr"),
-                available_sxr,
                 state_key,
                 f"point::{float(item['time_s']):.12f}",
             )
-
-#
-# def _render_log_panel() -> None:
-#     with st.expander("Лог интерфейса", expanded=False):
-#         log_path = Path(DEFAULT_ANNOTATION_UI_LOG_PATH)
-#         if st.button("Обновить лог", width="stretch", key="refresh_annotation_log"):
-#             pass
-#         if not log_path.is_file():
-#             st.caption("Лог появится после первой загрузки SHT.")
-#             return
-#         lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
-#         st.code("\n".join(lines[-120:]) or "Лог пока пуст", language="text")
-
 
 def main() -> None:
     st.set_page_config(page_title="SXR expert annotation", layout="wide")
@@ -2195,7 +2039,6 @@ def main() -> None:
                 natural_y_ranges,
             )
         )
-        # _render_log_panel()
     suggestions = _teacher_suggestions(teacher_shot)
 
     st.title("Экспертная разметка SXR")

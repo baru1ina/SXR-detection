@@ -10,20 +10,19 @@ import numpy as np
 
 from config.path import DEFAULT_PSEUDO_LABELS_PATH, SXR_CHANNELS
 from src.detection.ml.train.manifest import ShotRecord, ShotSplit, build_shot_manifest, stratified_shot_split
+from src.detection.utils.multichannel import MultiChannelVotingDetector
 
 
-PSEUDO_LABEL_SCHEMA_VERSION = 3
+PSEUDO_LABEL_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
 class WaveletLabelConfig:
-    channel: str = "SXR 50 mkm"
     channels: tuple[str, ...] = tuple(SXR_CHANNELS)
     min_snr: float = 2.0
     min_support_channels: int = 2
     coincidence_window_s: float = 0.15e-3
-    seed_period_s: float = 3e-3
-    downsample: int = 10
+    downsample: int = 5
     wt_threshold: float = 1.0
     wavelet_name: str = "mexh"
     crash_time_min_s: float = 10e-6
@@ -34,8 +33,6 @@ class WaveletLabelConfig:
     raw_peak_distance_s: float = 0.15e-3
     periodic_min_chain_len: int = 3
     periodic_tolerance: float = 0.40
-    plateau_level_fraction: float = 0.8
-    plateau_hold_s: float = 0.5e-3
 
     def __post_init__(self):
         channels = tuple(dict.fromkeys(self.channels))
@@ -43,28 +40,19 @@ class WaveletLabelConfig:
             raise ValueError("At least one SXR teacher channel is required")
         if self.min_snr <= 0 or not np.isfinite(self.min_snr):
             raise ValueError("min_snr must be positive and finite")
-        if self.min_support_channels < 1:
-            raise ValueError("min_support_channels must be positive")
+        if self.min_support_channels < 2:
+            raise ValueError("min_support_channels must be at least 2")
         if self.coincidence_window_s <= 0 or not np.isfinite(self.coincidence_window_s):
             raise ValueError("coincidence_window_s must be positive and finite")
-        if self.seed_period_s <= 0 or not np.isfinite(self.seed_period_s):
-            raise ValueError("seed_period_s must be positive and finite")
-        if not 0 < self.plateau_level_fraction < 1:
-            raise ValueError("plateau_level_fraction must be between 0 and 1")
-        if self.plateau_hold_s <= 0 or not np.isfinite(self.plateau_hold_s):
-            raise ValueError("plateau_hold_s must be positive and finite")
+        if self.downsample < 1:
+            raise ValueError("downsample must be at least 1")
         object.__setattr__(self, "channels", channels)
 
 
 @dataclass(frozen=True)
 class PseudoLabelEvent:
-    plasma_index: int
     time_s: float
-    relative_time_s: float
     score: float
-    direction: str
-    method: str
-    metadata: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -74,12 +62,7 @@ class PseudoLabeledShot:
     relative_path: str
     status: str
     channel: str
-    dt_s: Optional[float]
-    estimated_period_s: Optional[float]
-    plasma_start_s: Optional[float]
-    plasma_end_s: Optional[float]
     events: tuple[PseudoLabelEvent, ...]
-    uncertain_events: tuple[PseudoLabelEvent, ...] = ()
     error: Optional[str] = None
 
 
@@ -110,9 +93,9 @@ def _default_detector_factory(
     period: float,
     config: WaveletLabelConfig,
 ):
-    from src.detection.wavelet_pipeline import WaveletEnergyDetector
+    from src.detection.wavelet_pipeline import _make_wavelet_detector
 
-    return WaveletEnergyDetector(
+    return _make_wavelet_detector(
         dt=dt,
         period=period,
         wt_threshold=config.wt_threshold,
@@ -135,13 +118,6 @@ def _default_prepare_shot(**kwargs):
     from src.detection.utils.pipeline_utils import prepare_shot_for_detection
 
     return prepare_shot_for_detection(**kwargs)
-
-
-def _finite_float(value: Any) -> Optional[float]:
-    if value is None:
-        return None
-    result = float(value)
-    return result if math.isfinite(result) else None
 
 
 def _json_safe(value: Any) -> Any:
@@ -179,90 +155,55 @@ def label_prepared_shot(
             relative_path=record.relative_path,
             status="labeled",
             channel=prepared.channel_name,
-            dt_s=_finite_float(prepared.dt),
-            estimated_period_s=_finite_float(prepared.estimated_period),
-            plasma_start_s=float(time_plasma[0]),
-            plasma_end_s=float(time_plasma[-1]),
             events=(),
-            uncertain_events=(),
         )
     dt_effective = float(prepared.dt) * downsample
-    raw_candidates = []
-    plateau_mask = getattr(prepared, "plasma_plateau_mask", None)
-    plateau_mask_ds = (
-        None
-        if plateau_mask is None
-        else np.asarray(plateau_mask, dtype=bool)[::downsample]
-    )
     channel_snr = getattr(prepared, "channel_snr", None) or {}
-    for channel_name in config.channels:
-        signal = prepared.channel_signals.get(channel_name)
-        snr = channel_snr.get(channel_name, np.nan)
-        if signal is None or not np.isfinite(snr) or snr < config.min_snr:
-            continue
-        detector = detector_factory(dt_effective, config.seed_period_s, config)
-        channel_candidates = detector.detect_candidates(
-            np.asarray(signal)[::downsample],
-            period=config.seed_period_s,
-            period_map=None,
-            active_mask=None,
-            channel=channel_name,
-            debug=debug,
-        )
-        if plateau_mask_ds is not None:
-            channel_candidates = [
-                candidate
-                for candidate in channel_candidates
-                if 0 <= int(candidate.index) < len(plateau_mask_ds)
-                and plateau_mask_ds[int(candidate.index)]
-            ]
-        raw_candidates.extend(channel_candidates)
-
-    max_gap = max(1, int(round(config.coincidence_window_s / dt_effective)))
-    raw_candidates.sort(key=lambda candidate: candidate.index)
-    clusters = []
-    for candidate in raw_candidates:
-        if not clusters or candidate.index - clusters[-1][0].index > max_gap:
-            clusters.append([candidate])
-        else:
-            clusters[-1].append(candidate)
-
+    signals_ds = {
+        channel_name: np.asarray(prepared.channel_signals[channel_name], dtype=float)[
+            ::downsample
+        ]
+        for channel_name in config.channels
+        if channel_name in prepared.channel_signals
+        and np.isfinite(channel_snr.get(channel_name, np.nan))
+        and channel_snr[channel_name] >= config.min_snr
+    }
+    voter = MultiChannelVotingDetector(
+        detector_factory=lambda: detector_factory(
+            dt_effective,
+            float(prepared.estimated_period),
+            config,
+        ),
+        dt=dt_effective,
+        coincidence_window=config.coincidence_window_s,
+        min_channels=config.min_support_channels,
+    )
+    period_map_ds = (
+        None
+        if prepared.period_map is None
+        else np.asarray(prepared.period_map)[::downsample]
+    )
+    active_mask_ds = (
+        None
+        if prepared.saw_mask is None
+        else np.asarray(prepared.saw_mask, dtype=bool)[::downsample]
+    )
+    voted_events = voter.detect_events(
+        signals_ds,
+        period=float(prepared.estimated_period),
+        period_map=period_map_ds,
+        active_mask=active_mask_ds,
+        debug=debug,
+    )
     confirmed_events = []
-    uncertain_events = []
-    for cluster in clusters:
-        support_channels = sorted({candidate.channel for candidate in cluster})
-        median_index = float(np.median([candidate.index for candidate in cluster]))
-        representative = min(
-            cluster,
-            key=lambda candidate: (
-                abs(candidate.index - median_index),
-                -channel_snr.get(candidate.channel, 0.0),
-            ),
-        )
-        plasma_index = int(representative.index) * downsample
+    for voted_event in voted_events:
+        plasma_index = int(voted_event.index) * downsample
         if not 0 <= plasma_index < len(time_plasma):
             continue
-        event = PseudoLabelEvent(
-            plasma_index=plasma_index,
+        confirmed_events.append(PseudoLabelEvent(
             time_s=float(time_plasma[plasma_index]),
-            relative_time_s=float(time_plasma[plasma_index] - time_plasma[0]),
-            score=float(max(candidate.score for candidate in cluster)),
-            direction=str(representative.direction),
-            method="multi_sxr_wavelet",
-            metadata=_json_safe({
-                "source_channels": support_channels,
-                "support_count": len(support_channels),
-                "channel_snr": {name: channel_snr[name] for name in support_channels},
-                "time_spread_s": (
-                    max(candidate.index for candidate in cluster)
-                    - min(candidate.index for candidate in cluster)
-                ) * dt_effective,
-            }),
-        )
-        if len(support_channels) >= config.min_support_channels:
-            confirmed_events.append(event)
-        else:
-            uncertain_events.append(event)
+            score=float(voted_event.score),
+        ))
 
     return PseudoLabeledShot(
         shot_id=record.shot_id,
@@ -270,12 +211,7 @@ def label_prepared_shot(
         relative_path=record.relative_path,
         status="labeled",
         channel=prepared.channel_name,
-        dt_s=_finite_float(prepared.dt),
-        estimated_period_s=_finite_float(prepared.estimated_period),
-        plasma_start_s=float(time_plasma[0]),
-        plasma_end_s=float(time_plasma[-1]),
-        events=tuple(sorted(confirmed_events, key=lambda event: event.plasma_index)),
-        uncertain_events=tuple(sorted(uncertain_events, key=lambda event: event.plasma_index)),
+        events=tuple(sorted(confirmed_events, key=lambda event: event.time_s)),
     )
 
 
@@ -285,11 +221,7 @@ def _empty_shot(record: ShotRecord, config: WaveletLabelConfig, status: str, err
         category=record.category,
         relative_path=record.relative_path,
         status=status,
-        channel=config.channel,
-        dt_s=None,
-        estimated_period_s=None,
-        plasma_start_s=None,
-        plasma_end_s=None,
+        channel="auto_sxr",
         events=(),
         error=error,
     )
@@ -312,14 +244,11 @@ def _label_records(
                 source_dir=str(source_dir),
                 filename=record.relative_path,
                 logger=logger,
-                channel_name=config.channel,
+                channel_name=config.channels[0],
                 channels=config.channels,
                 require_sawtooth=False,
                 minimum_snr=config.min_snr,
                 auto_reference_sxr=True,
-                enable_plasma_plateau_gate=True,
-                plateau_level_fraction=config.plateau_level_fraction,
-                plateau_hold_s=config.plateau_hold_s,
             )
             if prepared is None:
                 labeled.append(_empty_shot(record, config, "skipped_preprocessing"))
@@ -385,10 +314,8 @@ def load_pseudo_labels(input_path: str | Path) -> PseudoLabelDataset:
 
     def parse_shot(item: dict[str, Any]) -> PseudoLabeledShot:
         events = tuple(PseudoLabelEvent(**event) for event in item.get("events", []))
-        uncertain_events = tuple(PseudoLabelEvent(**event) for event in item.get("uncertain_events", []))
         shot_data = dict(item)
         shot_data["events"] = events
-        shot_data["uncertain_events"] = uncertain_events
         return PseudoLabeledShot(**shot_data)
 
     return PseudoLabelDataset(
@@ -404,14 +331,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate wavelet pseudo-labels for the feature-ML dataset")
     parser.add_argument("--source-dir", default="data/raw")
     parser.add_argument("--output", default=DEFAULT_PSEUDO_LABELS_PATH)
-    parser.add_argument("--channel", default="SXR 50 mkm", help="Preferred SXR when quality is tied")
     parser.add_argument("--channels", nargs="+", default=SXR_CHANNELS)
+    parser.add_argument("--min-snr", type=float, default=2.0)
     parser.add_argument("--min-support-channels", type=int, default=2)
-    parser.add_argument("--downsample", type=int, default=10)
+    parser.add_argument("--coincidence-window-ms", type=float, default=0.15)
+    parser.add_argument("--downsample", type=int, default=5)
     parser.add_argument("--validation-ratio", type=float, default=0.2)
     parser.add_argument("--random-state", type=int, default=42)
-    parser.add_argument("--plateau-level-fraction", type=float, default=0.8)
-    parser.add_argument("--plateau-hold-ms", type=float, default=0.5)
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
@@ -429,12 +355,11 @@ def main() -> None:
         split=split,
         logger=logger,
         config=WaveletLabelConfig(
-            channel=args.channel,
             channels=tuple(args.channels),
-            downsample=args.downsample,
+            min_snr=args.min_snr,
             min_support_channels=args.min_support_channels,
-            plateau_level_fraction=args.plateau_level_fraction,
-            plateau_hold_s=args.plateau_hold_ms * 1e-3,
+            coincidence_window_s=args.coincidence_window_ms * 1e-3,
+            downsample=args.downsample,
         ),
         debug=args.debug,
     )

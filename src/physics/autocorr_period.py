@@ -237,6 +237,71 @@ def build_period_map(
     return period_map
 
 
+def build_period_confidence_map(
+    n_samples: int,
+    times: np.ndarray,
+    periods: np.ndarray,
+    scores: np.ndarray,
+    *,
+    ac_threshold: float = 0.3,
+    min_period: float = 1e-3,
+    max_period: float = 10e-3,
+    boundary_eps: float = 0.10,
+    include_boundary_periods: bool = False,
+    support_radius_samples: int = 0,
+    max_interp_gap_samples: int | None = None,
+) -> np.ndarray:
+    """Interpolate ACF confidence over exactly the supported period-map areas."""
+
+    times = np.asarray(times, dtype=float)
+    periods = np.asarray(periods, dtype=float)
+    scores = np.asarray(scores, dtype=float)
+    finite = np.isfinite(times) & np.isfinite(periods) & np.isfinite(scores)
+    valid = finite & (scores > ac_threshold)
+    if not include_boundary_periods:
+        valid = (
+            valid
+            & (periods > min_period * (1.0 + boundary_eps))
+            & (periods < max_period * (1.0 - boundary_eps))
+        )
+
+    result = np.full(int(n_samples), np.nan, dtype=float)
+    valid_times = np.rint(times[valid]).astype(int)
+    valid_scores = scores[valid]
+    inside = (valid_times >= 0) & (valid_times < n_samples)
+    valid_times = valid_times[inside]
+    valid_scores = valid_scores[inside]
+    if len(valid_times) == 0:
+        return result
+
+    order = np.argsort(valid_times)
+    valid_times = valid_times[order]
+    valid_scores = valid_scores[order]
+    if max_interp_gap_samples is None:
+        steps = np.diff(valid_times)
+        typical_step = int(np.median(steps)) if len(steps) else 1
+        max_interp_gap_samples = max(1, int(round(1.5 * typical_step)))
+    else:
+        max_interp_gap_samples = max(1, int(max_interp_gap_samples))
+    radius = max(0, int(support_radius_samples))
+
+    split_at = np.flatnonzero(np.diff(valid_times) > max_interp_gap_samples) + 1
+    for group in np.split(np.arange(len(valid_times)), split_at):
+        if len(group) == 0:
+            continue
+        group_times = valid_times[group]
+        group_scores = valid_scores[group]
+        left = max(0, int(group_times[0]) - radius)
+        right = min(n_samples - 1, int(group_times[-1]) + radius)
+        query = np.arange(left, right + 1)
+        if len(group) == 1:
+            values = np.full(len(query), float(group_scores[0]), dtype=float)
+        else:
+            values = np.interp(query, group_times, group_scores)
+        result[query] = np.clip(values, 0.0, 1.0)
+    return result
+
+
 def refine_period_map_from_events(
     n_samples: int,
     event_indices: np.ndarray,

@@ -4,6 +4,7 @@ from typing import Optional
 
 from config.path import (
     DEFAULT_EXPERT_LABELS_PATH,
+    DEFAULT_FEATURE_ML_PROFILE,
     DEFAULT_PSEUDO_LABELS_PATH,
     feature_ml_artifact_paths,
 )
@@ -46,15 +47,17 @@ def train_feature_ml_from_pseudo_labels(
     metrics_output: Optional[str | Path] = None,
     backend: str = "sklearn_hgb",
     random_state: int = 42,
-    downsample: Optional[int] = None,
-    posr_threshold: float = 3.0,
+    downsample: Optional[int] = 5,
+    posr_threshold: float = 1.0,
+    min_distance_factor: float = 0.45,
     proposal_source: str = "posr",
     cpd_penalty: float = 3.0,
     cpd_model: str = "rbf",
     positive_tolerance_s: float = 0.3e-3,
     negative_exclusion_s: float = 0.6e-3,
     proposal_coincidence_window_s: float = 0.15e-3,
-    feature_profile: str = "full",
+    event_merge_window_s: float = 0.50e-3,
+    feature_profile: str = DEFAULT_FEATURE_ML_PROFILE,
     plateau_level_fraction: float = 0.8,
     plateau_hold_s: float = 0.5e-3,
     debug: bool = False,
@@ -85,12 +88,14 @@ def train_feature_ml_from_pseudo_labels(
     config = FeatureMLCandidateConfig(
         downsample=effective_downsample,
         threshold=posr_threshold,
+        min_distance_factor=min_distance_factor,
         proposal_source=proposal_source,
         cpd_penalty=cpd_penalty,
         cpd_model=cpd_model,
         positive_tolerance_s=positive_tolerance_s,
         negative_exclusion_s=negative_exclusion_s,
         coincidence_window_s=proposal_coincidence_window_s,
+        event_merge_window_s=event_merge_window_s,
         plateau_level_fraction=plateau_level_fraction,
         plateau_hold_s=plateau_hold_s,
     )

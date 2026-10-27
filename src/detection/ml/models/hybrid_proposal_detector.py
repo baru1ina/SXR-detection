@@ -21,7 +21,6 @@ class FeatureMLProposalDetector:
         self.posr_detector = posr_detector
         self.cpd_detector = cpd_detector
         self.last_candidates: list[CrashCandidate] = []
-        self.last_source_counts: dict[str, int] = {}
 
     def detect_candidates(
         self,
@@ -49,7 +48,6 @@ class FeatureMLProposalDetector:
             if self.source in {"cpd", "hybrid"}
             else []
         )
-        self.last_source_counts = {"posr": len(posr), "cpd_raw": len(cpd)}
         self.last_candidates = posr + cpd
 
         if debug:

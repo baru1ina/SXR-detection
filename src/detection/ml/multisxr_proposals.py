@@ -123,7 +123,6 @@ def collect_multisxr_candidates(
                     "source_methods": source_methods,
                     "source_channel_methods": source_channel_methods,
                     "source_scores": source_scores,
-                    "source_count": len(source_channels),
                     "proposal_count": len(cluster),
                     "time_spread_s": (
                         max(candidate.index for candidate in cluster)

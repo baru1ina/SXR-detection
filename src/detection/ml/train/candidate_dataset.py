@@ -28,13 +28,13 @@ from src.detection.ml.train.pseudo_labels import (
 )
 
 
-CANDIDATE_DATASET_SCHEMA_VERSION = 8
+CANDIDATE_DATASET_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
 class FeatureMLCandidateConfig:
-    downsample: int = 10
-    threshold: float = 3.0
+    downsample: int = 5
+    threshold: float = 1.0
     min_distance_factor: float = 0.45
     proposal_source: str = "posr"
     cpd_penalty: float = 3.0
@@ -43,12 +43,17 @@ class FeatureMLCandidateConfig:
     negative_exclusion_s: float = 0.6e-3
     proposal_channels: tuple[str, ...] = tuple(SXR_CHANNELS)
     coincidence_window_s: float = 0.15e-3
+    event_merge_window_s: float = 0.50e-3
     plateau_level_fraction: float = 0.8
     plateau_hold_s: float = 0.5e-3
 
     def __post_init__(self):
         if self.downsample < 1:
             raise ValueError("downsample must be at least 1")
+        if not np.isfinite(self.min_distance_factor) or self.min_distance_factor <= 0:
+            raise ValueError("min_distance_factor must be positive and finite")
+        if not np.isfinite(self.threshold) or self.threshold < 0:
+            raise ValueError("threshold must be non-negative and finite")
         proposal_source = str(self.proposal_source).lower()
         if proposal_source not in {"posr", "cpd", "hybrid"}:
             raise ValueError("proposal_source must be one of: posr, cpd, hybrid")
@@ -63,6 +68,8 @@ class FeatureMLCandidateConfig:
         object.__setattr__(self, "proposal_channels", proposal_channels)
         if not np.isfinite(self.coincidence_window_s) or self.coincidence_window_s <= 0:
             raise ValueError("coincidence_window_s must be positive and finite")
+        if not np.isfinite(self.event_merge_window_s) or self.event_merge_window_s <= 0:
+            raise ValueError("event_merge_window_s must be positive and finite")
         if not 0 < self.plateau_level_fraction < 1:
             raise ValueError("plateau_level_fraction must be between 0 and 1")
         if not np.isfinite(self.plateau_hold_s) or self.plateau_hold_s <= 0:
@@ -73,13 +80,8 @@ class FeatureMLCandidateConfig:
 class LabeledCandidate:
     plasma_index: int
     time_s: float
-    relative_time_s: float
     label: int
-    proposer_score: float
-    direction: str
-    method: str
     closest_teacher_time_s: Optional[float]
-    distance_to_teacher_s: Optional[float]
     label_source: str
     metadata: dict[str, Any]
 
@@ -108,8 +110,6 @@ class CandidateShot:
 @dataclass(frozen=True)
 class CandidateDataset:
     source_dir: str
-    teacher_schema_version: int
-    expert_label_schema_version: Optional[int]
     config: FeatureMLCandidateConfig
     train: tuple[CandidateShot, ...]
     validation: tuple[CandidateShot, ...]
@@ -158,7 +158,7 @@ def _default_detector_factory(dt: float, period: float, config: FeatureMLCandida
     from src.detection.models.cpd_detector import CPDDetector
     from src.detection.models.posr_detector import WaveletPOSRDetector
 
-    sigma = float(np.clip(0.03 * period, 30e-6, 200e-6))
+    sigma = float(np.clip(0.03 * period, 10e-6, 100e-6))
     posr_detector = WaveletPOSRDetector(
         dt=dt,
         sigma=sigma,
@@ -264,23 +264,15 @@ def label_candidates(
         for event in teacher.events
         if expert is None or not expert.is_reviewed(event.time_s)
     )
-    pseudo_uncertain_events = tuple(
-        event
-        for event in teacher.uncertain_events
-        if expert is None or not expert.is_reviewed(event.time_s)
-    )
     expert_events = expert.positive_events if expert else ()
     expert_uncertain_events = expert.uncertain_events if expert else ()
     effective_events: tuple[tuple[float, float], ...] = tuple(
         (event.time_s, config.positive_tolerance_s) for event in pseudo_events
     ) + tuple(
-        (event.time_s, event.effective_tolerance(config.positive_tolerance_s))
+        (event.time_s, config.positive_tolerance_s)
         for event in expert_events
     )
     teacher_times = np.asarray([event.time_s for event in pseudo_events], dtype=float)
-    uncertain_times = np.asarray(
-        [event.time_s for event in pseudo_uncertain_events], dtype=float
-    )
     is_not_saw = teacher.category.casefold() == "notsaw"
     if not is_not_saw and not effective_events and expert is None:
         raise ValueError(f"No teacher events for sawtooth shot {teacher.shot_id}")
@@ -304,7 +296,7 @@ def label_candidates(
             expert is not None
             and any(
                 abs(event.time_s - time_s)
-                <= event.effective_tolerance(config.positive_tolerance_s)
+                <= config.positive_tolerance_s
                 for event in expert_events
             )
         )
@@ -312,7 +304,7 @@ def label_candidates(
             expert is not None
             and any(
                 abs(event.time_s - time_s)
-                < event.effective_tolerance(config.negative_exclusion_s)
+                < config.negative_exclusion_s
                 for event in expert_uncertain_events
             )
         )
@@ -327,8 +319,7 @@ def label_candidates(
             if (
                 nearest_event is not None
                 and distance is not None
-                and distance
-                <= nearest_event.effective_tolerance(config.positive_tolerance_s)
+                and distance <= config.positive_tolerance_s
             ):
                 label = 1
             else:
@@ -338,19 +329,15 @@ def label_candidates(
                 near_uncertain = (
                     uncertain_event is not None
                     and uncertain_distance is not None
-                    and uncertain_distance
-                    < uncertain_event.effective_tolerance(config.negative_exclusion_s)
+                    and uncertain_distance < config.negative_exclusion_s
                 )
-                if near_uncertain or (
-                    distance is not None and distance < config.negative_exclusion_s
-                ):
+                if near_uncertain:
                     ignored_count += 1
                     continue
                 label = 0
         elif is_not_saw:
             label = 0
             closest_time = None
-            distance = None
             label_source = "wavelet"
         else:
             if not len(teacher_times):
@@ -363,26 +350,15 @@ def label_candidates(
             label_source = "wavelet"
             if distance <= config.positive_tolerance_s:
                 label = 1
-            elif len(uncertain_times) and np.min(np.abs(uncertain_times - time_s)) < config.negative_exclusion_s:
-                ignored_count += 1
-                continue
-            elif distance >= config.negative_exclusion_s:
-                label = 0
             else:
-                ignored_count += 1
-                continue
+                label = 0
 
         labeled.append(
             LabeledCandidate(
                 plasma_index=plasma_index,
                 time_s=time_s,
-                relative_time_s=float(time_s - time_plasma[0]),
                 label=label,
-                proposer_score=float(proposal.score),
-                direction=str(proposal.direction),
-                method=str(proposal.method or "wavelet_posr"),
                 closest_teacher_time_s=closest_time,
-                distance_to_teacher_s=distance,
                 label_source=label_source,
                 metadata=_json_safe(dict(proposal.meta)),
             )
@@ -407,7 +383,7 @@ def label_candidates(
         proposal_recall = matched_teacher_count / len(effective_events)
 
     expert_targets = tuple(
-        (event.time_s, event.effective_tolerance(config.positive_tolerance_s))
+        (event.time_s, config.positive_tolerance_s)
         for event in expert_events
     )
     matched_expert_count = matched_event_count(expert_targets)
@@ -417,7 +393,7 @@ def label_candidates(
 
     injected_count = 0
     for event in expert_events:
-        tolerance = event.effective_tolerance(config.positive_tolerance_s)
+        tolerance = config.positive_tolerance_s
         if len(proposal_times) and np.min(np.abs(proposal_times - event.time_s)) <= tolerance:
             continue
         nearest_sample = int(np.argmin(np.abs(time_plasma - event.time_s)))
@@ -434,7 +410,7 @@ def label_candidates(
                 f"Expert event at {event.time_s} s in {teacher.shot_id} cannot be "
                 "aligned to the candidate grid within its tolerance"
             )
-        synthetic_channel = event.reference_sxr or teacher.channel
+        synthetic_channel = teacher.channel
         synthetic_method = (
             "cpd_raw" if config.proposal_source == "cpd" else "wavelet_posr_raw"
         )
@@ -443,13 +419,8 @@ def label_candidates(
             LabeledCandidate(
                 plasma_index=plasma_index,
                 time_s=actual_time,
-                relative_time_s=float(actual_time - time_plasma[0]),
                 label=1,
-                proposer_score=synthetic_score,
-                direction="unknown",
-                method="expert_manual_injection",
                 closest_teacher_time_s=event.time_s,
-                distance_to_teacher_s=abs(actual_time - event.time_s),
                 label_source="expert",
                 metadata={
                     "source_channels": [synthetic_channel],
@@ -458,10 +429,8 @@ def label_candidates(
                         synthetic_channel: [synthetic_method]
                     },
                     "source_scores": [synthetic_score],
-                    "source_count": 1,
                     "proposal_count": 1,
                     "time_spread_s": 0.0,
-                    "expert_injected": True,
                 },
             )
         )
@@ -528,6 +497,7 @@ def _build_split(
                 enable_plasma_plateau_gate=True,
                 plateau_level_fraction=config.plateau_level_fraction,
                 plateau_hold_s=config.plateau_hold_s,
+                period_min_s=0.5e-3,
             )
             if prepared is None:
                 result.append(
@@ -592,10 +562,6 @@ def build_candidate_dataset(
     )
     return CandidateDataset(
         source_dir=pseudo_labels.source_dir,
-        teacher_schema_version=pseudo_labels.schema_version,
-        expert_label_schema_version=(
-            expert_labels.schema_version if expert_labels is not None else None
-        ),
         config=config,
         train=train,
         validation=validation,
@@ -629,12 +595,6 @@ def load_candidate_dataset(input_path: str | Path) -> CandidateDataset:
 
     return CandidateDataset(
         source_dir=payload["source_dir"],
-        teacher_schema_version=int(payload["teacher_schema_version"]),
-        expert_label_schema_version=(
-            None
-            if payload.get("expert_label_schema_version") is None
-            else int(payload["expert_label_schema_version"])
-        ),
         config=FeatureMLCandidateConfig(**payload["config"]),
         train=tuple(parse_shot(item) for item in payload["train"]),
         validation=tuple(parse_shot(item) for item in payload["validation"]),
@@ -653,8 +613,9 @@ def main() -> None:
         default=None,
         help="Default: feature_ml_candidates_<proposal-source>.json",
     )
-    parser.add_argument("--downsample", type=int, default=None)
-    parser.add_argument("--threshold", type=float, default=3.0)
+    parser.add_argument("--downsample", type=int, default=5)
+    parser.add_argument("--threshold", type=float, default=1.0)
+    parser.add_argument("--min-distance-factor", type=float, default=0.45)
     parser.add_argument(
         "--proposal-source",
         choices=("posr", "cpd", "hybrid"),
@@ -664,6 +625,7 @@ def main() -> None:
     parser.add_argument("--cpd-model", default="rbf")
     parser.add_argument("--proposal-channels", nargs="+", default=SXR_CHANNELS)
     parser.add_argument("--coincidence-window-ms", type=float, default=0.15)
+    parser.add_argument("--event-merge-window-ms", type=float, default=0.50)
     parser.add_argument("--positive-tolerance-ms", type=float, default=0.3)
     parser.add_argument("--negative-exclusion-ms", type=float, default=0.6)
     parser.add_argument("--plateau-level-fraction", type=float, default=0.8)
@@ -676,10 +638,10 @@ def main() -> None:
     logger = setup_logger(log_to_file=False)
     pseudo_labels = load_pseudo_labels(args.pseudo_labels)
     expert_labels = load_expert_labels(args.expert_labels)
-    downsample = args.downsample or pseudo_labels.config.downsample
     config = FeatureMLCandidateConfig(
-        downsample=downsample,
+        downsample=args.downsample,
         threshold=args.threshold,
+        min_distance_factor=args.min_distance_factor,
         proposal_source=args.proposal_source,
         cpd_penalty=args.cpd_penalty,
         cpd_model=args.cpd_model,
@@ -687,6 +649,7 @@ def main() -> None:
         negative_exclusion_s=args.negative_exclusion_ms * 1e-3,
         proposal_channels=tuple(args.proposal_channels),
         coincidence_window_s=args.coincidence_window_ms * 1e-3,
+        event_merge_window_s=args.event_merge_window_ms * 1e-3,
         plateau_level_fraction=args.plateau_level_fraction,
         plateau_hold_s=args.plateau_hold_ms * 1e-3,
     )

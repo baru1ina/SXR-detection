@@ -2,7 +2,14 @@ import numpy as np
 
 from config.path import PATH_TO_RES_AUTOCORR
 
-from src.physics.autocorr_period import sliding_autocorr_period, autocorr_period, build_period_map, robust_period_from_map, build_saw_activity_mask
+from src.physics.autocorr_period import (
+    autocorr_period,
+    build_period_confidence_map,
+    build_period_map,
+    build_saw_activity_mask,
+    robust_period_from_map,
+    sliding_autocorr_period,
+)
 from src.physics.fft import fft_score, fft_score_with_drift
 
 from scipy.signal import butter, filtfilt
@@ -65,7 +72,9 @@ def detect_sawtooth_hybrid(
         fft_threshold=0.4,
         min_fraction=0.25,
         min_snr=2,
-        signal_for_snr=None):
+        signal_for_snr=None,
+        min_period=1e-3,
+        max_period=10e-3):
 
     snr_signal = signal if signal_for_snr is None else signal_for_snr
     noise_estimate = np.std(np.asarray(prehist, dtype=float))
@@ -83,10 +92,18 @@ def detect_sawtooth_hybrid(
     times, periods, scores = sliding_autocorr_period(
         signal,
         logger,
-        dt
+        dt,
+        min_period=min_period,
+        max_period=max_period,
     )
 
-    estimated_period = robust_period_from_map(periods, scores, ac_threshold=ac_threshold)
+    estimated_period = robust_period_from_map(
+        periods,
+        scores,
+        ac_threshold=ac_threshold,
+        min_period=min_period,
+        max_period=max_period,
+    )
 
     logger.info(f"estimated_period = {estimated_period}")
 
@@ -96,11 +113,39 @@ def detect_sawtooth_hybrid(
         periods=periods,
         scores=scores,
         ac_threshold=ac_threshold,
+        min_period=min_period,
+        max_period=max_period,
         default_period=estimated_period,
         include_boundary_periods=False,
         support_radius_samples=int(round(0.5 * 20e-3 / dt)),
         max_interp_gap_samples=int(round(1.5 * 5e-3 / dt)),
         fill_unknown=False,
+    )
+    merge_period_map = build_period_map(
+        n_samples=len(signal),
+        times=times,
+        periods=periods,
+        scores=scores,
+        ac_threshold=0.0,
+        min_period=min_period,
+        max_period=max_period,
+        default_period=estimated_period,
+        include_boundary_periods=True,
+        support_radius_samples=int(round(0.5 * 20e-3 / dt)),
+        max_interp_gap_samples=int(round(1.5 * 5e-3 / dt)),
+        fill_unknown=False,
+    )
+    period_confidence_map = build_period_confidence_map(
+        n_samples=len(signal),
+        times=times,
+        periods=periods,
+        scores=scores,
+        ac_threshold=0.0,
+        min_period=min_period,
+        max_period=max_period,
+        include_boundary_periods=True,
+        support_radius_samples=int(round(0.5 * 20e-3 / dt)),
+        max_interp_gap_samples=int(round(1.5 * 5e-3 / dt)),
     )
 
     saw_mask = build_saw_activity_mask(
@@ -111,6 +156,8 @@ def detect_sawtooth_hybrid(
         dt=dt,
         global_period=estimated_period,
         ac_threshold=ac_threshold,
+        min_period=min_period,
+        max_period=max_period,
     )
 
     fft_ratio, peakiness, f0_array, is_saw = fft_score_with_drift(
@@ -133,4 +180,12 @@ def detect_sawtooth_hybrid(
 
     interval = (0, len(signal))
 
-    return True, interval, estimated_period, period_map, saw_mask
+    return (
+        True,
+        interval,
+        estimated_period,
+        period_map,
+        saw_mask,
+        merge_period_map,
+        period_confidence_map,
+    )

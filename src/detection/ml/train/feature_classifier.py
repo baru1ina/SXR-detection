@@ -19,6 +19,7 @@ from sklearn.metrics import (
 
 from config.channels import get_feature_map_profile
 from config.path import (
+    DEFAULT_FEATURE_ML_PROFILE,
     SXR_CHANNELS,
     feature_ml_artifact_paths,
 )
@@ -150,6 +151,7 @@ def extract_feature_rows(
             channels=list(dict.fromkeys([*SXR_CHANNELS, shot.channel])),
             require_sawtooth=False,
             feature_channel_profile=feature_builder.profile,
+            period_min_s=0.5e-3,
         )
         if prepared is None:
             raise RuntimeError(f"Could not prepare {shot.relative_path} for feature extraction")
@@ -436,7 +438,6 @@ def train_feature_classifier(
     report = {
         "schema_version": MODEL_SCHEMA_VERSION,
         "candidate_dataset_schema_version": dataset.schema_version,
-        "expert_label_schema_version": dataset.expert_label_schema_version,
         "candidate_dataset_summary": dataset.summary(),
         "backend": backend_name,
         "random_state": random_state,
@@ -503,6 +504,9 @@ def save_model(
                 "coincidence_window_s": report["candidate_config"][
                     "coincidence_window_s"
                 ],
+                "event_merge_window_s": report["candidate_config"][
+                    "event_merge_window_s"
+                ],
                 "plateau_level_fraction": report["candidate_config"][
                     "plateau_level_fraction"
                 ],
@@ -543,7 +547,7 @@ def main() -> None:
     parser.add_argument(
         "--feature-profile",
         choices=("reference_sxr", "core_diagnostics", "full"),
-        default="full",
+        default=DEFAULT_FEATURE_ML_PROFILE,
     )
     parser.add_argument("--random-state", type=int, default=42)
     args = parser.parse_args()

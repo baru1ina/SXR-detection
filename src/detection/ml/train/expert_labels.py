@@ -4,20 +4,10 @@ import math
 from pathlib import Path
 from typing import Any, Optional
 
-from config.path import SXR_CHANNELS
-
-
-EXPERT_LABEL_SCHEMA_VERSION = 2
+EXPERT_LABEL_SCHEMA_VERSION = 1
 EXPERT_EVENT_LABELS = ("sawtooth", "uncertain", "false_positive")
 EXPERT_REVIEW_STATUSES = ("partial", "complete")
 EXPERT_SHOT_LABELS = ("sawtooth", "no_sawtooth", "uncertain")
-AUTOMATIC_LABEL_SOURCES = (
-    "wavelet_teacher",
-    "posr",
-    "cpd",
-    "feature_ml",
-    "other",
-)
 
 
 def _finite_float(value: Any, field: str) -> float:
@@ -65,20 +55,10 @@ class ReviewedInterval:
 class ExpertEvent:
     time_s: float
     label: str
-    tolerance_s: Optional[float] = None
-    confidence: Optional[str] = None
-    reference_sxr: Optional[str] = None
-    visible_sxr: tuple[str, ...] = ()
-    source: Optional[str] = None
-    note: str = ""
 
     @property
     def is_positive(self) -> bool:
         return self.label == "sawtooth"
-
-    def effective_tolerance(self, default_s: float) -> float:
-        return default_s if self.tolerance_s is None else self.tolerance_s
-
 
 @dataclass(frozen=True)
 class ExpertLabeledShot:
@@ -97,10 +77,6 @@ class ExpertLabeledShot:
     @property
     def uncertain_events(self) -> tuple[ExpertEvent, ...]:
         return tuple(event for event in self.events if event.label == "uncertain")
-
-    @property
-    def rejected_events(self) -> tuple[ExpertEvent, ...]:
-        return tuple(event for event in self.events if event.label == "false_positive")
 
     def is_reviewed(self, time_s: float) -> bool:
         return any(interval.contains(time_s) for interval in self.reviewed_intervals)
@@ -131,10 +107,7 @@ def _parse_event(value: Any, field: str) -> ExpertEvent:
         payload,
         field,
         required={"time_s", "label"},
-        optional={
-            "tolerance_s", "confidence", "reference_sxr", "visible_sxr",
-            "source", "note"
-        },
+        optional=set(),
     )
     time_s = _finite_float(payload["time_s"], f"{field}.time_s")
     if time_s < 0:
@@ -142,52 +115,7 @@ def _parse_event(value: Any, field: str) -> ExpertEvent:
     label = str(payload["label"]).strip().casefold()
     if label not in EXPERT_EVENT_LABELS:
         raise ValueError(f"{field}.label must be one of {EXPERT_EVENT_LABELS}")
-    tolerance = payload.get("tolerance_s")
-    if tolerance is not None:
-        tolerance = _finite_float(tolerance, f"{field}.tolerance_s")
-        if tolerance <= 0:
-            raise ValueError(f"{field}.tolerance_s must be positive")
-    confidence = payload.get("confidence")
-    if confidence is not None:
-        confidence = str(confidence).strip().casefold()
-        if confidence not in {"certain", "uncertain"}:
-            raise ValueError(
-                f"{field}.confidence must be 'certain' or 'uncertain'"
-            )
-    reference_sxr = payload.get("reference_sxr")
-    if reference_sxr is not None and reference_sxr not in SXR_CHANNELS:
-        raise ValueError(f"{field}.reference_sxr is not a configured SXR channel")
-    visible = payload.get("visible_sxr", [])
-    if not isinstance(visible, list) or any(not isinstance(item, str) for item in visible):
-        raise ValueError(f"{field}.visible_sxr must be a list of SXR channel names")
-    visible_sxr = tuple(dict.fromkeys(visible))
-    unknown_channels = set(visible_sxr) - set(SXR_CHANNELS)
-    if unknown_channels:
-        raise ValueError(
-            f"{field}.visible_sxr contains unknown channels: {sorted(unknown_channels)}"
-        )
-    source = payload.get("source")
-    if source is not None:
-        source = str(source).strip().casefold()
-        if source not in AUTOMATIC_LABEL_SOURCES:
-            raise ValueError(
-                f"{field}.source must be one of {AUTOMATIC_LABEL_SOURCES}"
-            )
-    if label == "false_positive" and source is None:
-        raise ValueError(f"{field}.source is required for false_positive")
-    note = payload.get("note", "")
-    if not isinstance(note, str):
-        raise ValueError(f"{field}.note must be a string")
-    return ExpertEvent(
-        time_s=time_s,
-        label=label,
-        tolerance_s=tolerance,
-        confidence=confidence,
-        reference_sxr=reference_sxr,
-        visible_sxr=visible_sxr,
-        source=source,
-        note=note,
-    )
+    return ExpertEvent(time_s=time_s, label=label)
 
 
 def _parse_shot(value: Any, index: int) -> ExpertLabeledShot:

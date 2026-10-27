@@ -33,6 +33,8 @@ class PreparedShot:
     estimated_period: float
     mask: np.ndarray
     period_map: Optional[np.ndarray] = None
+    merge_period_map: Optional[np.ndarray] = None
+    period_confidence_map: Optional[np.ndarray] = None
     saw_mask: Optional[np.ndarray] = None
     aligned_signals: Optional[AlignedSignalSet] = None
     feature_profile: Optional[str] = None
@@ -69,6 +71,7 @@ def prepare_shot_for_detection(
     enable_plasma_plateau_gate: bool = False,
     plateau_level_fraction: float = 0.8,
     plateau_hold_s: float = 0.5e-3,
+    period_min_s: float = 1e-3,
 ) -> Optional[PreparedShot]:
     requested_channels = list(channels or SXR_CHANNELS)
     load_channels = sorted(set(requested_channels + [channel_name, IP_CHANNEL]))
@@ -190,12 +193,37 @@ def prepare_shot_for_detection(
         logger=logger,
         ch=f"{channel_name}_{filename}",
         signal_for_snr=ref_raw[mask],
+        min_period=period_min_s,
     )
-    if len(saw_result) == 5:
+    if len(saw_result) >= 7:
+        (
+            has_saw,
+            _,
+            estimated_period,
+            period_map,
+            saw_mask,
+            merge_period_map,
+            period_confidence_map,
+        ) = saw_result[:7]
+    elif len(saw_result) == 6:
+        (
+            has_saw,
+            _,
+            estimated_period,
+            period_map,
+            saw_mask,
+            period_confidence_map,
+        ) = saw_result
+        merge_period_map = period_map
+    elif len(saw_result) == 5:
         has_saw, _, estimated_period, period_map, saw_mask = saw_result
+        merge_period_map = period_map
+        period_confidence_map = None
     else:
         has_saw, _, estimated_period, period_map = saw_result
         saw_mask = None
+        merge_period_map = period_map
+        period_confidence_map = None
     if not has_saw:
         logger.warning(
             "Shot/channel rejected by the preliminary sawtooth check; "
@@ -206,6 +234,8 @@ def prepare_shot_for_detection(
             return None
         estimated_period = 3e-3
         period_map = None
+        merge_period_map = None
+        period_confidence_map = None
         saw_mask = None
         logger.info("Continuing without the sawtooth pre-filter for candidate generation.")
 
@@ -284,6 +314,8 @@ def prepare_shot_for_detection(
         estimated_period=float(estimated_period),
         mask=mask,
         period_map=period_map,
+        merge_period_map=merge_period_map,
+        period_confidence_map=period_confidence_map,
         saw_mask=saw_mask,
         aligned_signals=aligned_signals,
         feature_profile=(
@@ -296,18 +328,16 @@ def prepare_shot_for_detection(
     )
 
 
-def run_single_channel_detector(
+def detect_single_channel_indices(
     prepared: PreparedShot,
     detector,
-    logger,
     downsample: int = 1,
-    plot: bool = True,
-    mode: str = "detector",
     debug: bool = False,
 ) -> np.ndarray:
-    ds = downsample
+    """Run the canonical single-channel detector path and return full-grid indices."""
+
+    ds = max(1, int(downsample))
     signal_ds = prepared.reference_signal[::ds]
-    dt_ds = prepared.dt * ds
 
     period_map_ds = None
     if prepared.period_map is not None:
@@ -337,6 +367,34 @@ def run_single_channel_detector(
             effective_saw_mask = np.asarray(effective_saw_mask, dtype=bool) | event_support
     if effective_saw_mask is not None and len(indices) > 0:
         indices = indices[effective_saw_mask[indices]]
+    return indices
+
+
+def run_single_channel_detector(
+    prepared: PreparedShot,
+    detector,
+    logger,
+    downsample: int = 1,
+    plot: bool = True,
+    mode: str = "detector",
+    debug: bool = False,
+) -> np.ndarray:
+    ds = max(1, int(downsample))
+    signal_ds = prepared.reference_signal[::ds]
+    indices = detect_single_channel_indices(
+        prepared,
+        detector,
+        downsample=ds,
+        debug=debug,
+    )
+    effective_saw_mask = prepared.saw_mask
+    detector_period_map = getattr(detector, "last_period_map", None)
+    if detector_period_map is not None and len(detector_period_map) == len(signal_ds):
+        event_support = np.repeat(np.isfinite(detector_period_map), ds)[:len(prepared.time_plasma)]
+        if effective_saw_mask is None:
+            effective_saw_mask = event_support
+        else:
+            effective_saw_mask = np.asarray(effective_saw_mask, dtype=bool) | event_support
     crash_times = prepared.time_plasma[indices]
 
     logger.info(f"Single-channel detections: {len(crash_times)}")

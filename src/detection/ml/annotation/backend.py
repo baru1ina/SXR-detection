@@ -25,8 +25,6 @@ class AutomaticSuggestion:
     source: str
     time_s: float
     score: float
-    reference_sxr: str | None
-    source_channels: tuple[str, ...] = ()
 
 
 def build_shot_catalog(

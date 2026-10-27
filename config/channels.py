@@ -58,59 +58,56 @@ class DiagnosticChannelProfile:
 
 
 _FULL_DIAGNOSTIC_CHANNELS = (
-        DiagnosticChannel(
-            "Ip новый (Пр1ВК) (инт.16)",
-            "ip_new",
-            "plasma_current",
-        ),
-        DiagnosticChannel(
-            "Ip внутр.(Пр2ВК) (инт.18)",
-            "ip_internal",
-            "plasma_current",
-        ),
-        DiagnosticChannel("D-alfa нижний купол", "dalpha_lower_dome", "d_alpha"),
-        DiagnosticChannel("D-alfa верхний купол", "dalpha_upper_dome", "d_alpha"),
-        DiagnosticChannel("D-alfa  хорда R=50 cm", "dalpha_r50", "d_alpha"),
-        DiagnosticChannel("D-alfa  хорда R=42 cm", "dalpha_r42", "d_alpha"),
-        DiagnosticChannel("D-alpha (на столб)", "dalpha_column", "d_alpha"),
-        DiagnosticChannel("МГД наружный       ", "mhd_outer", "mhd"),
-        DiagnosticChannel("МГД быстрый зонд рад.", "mhd_fast_radial", "mhd"),
-        DiagnosticChannel("МГД быстрый зонд тор.", "mhd_fast_toroidal", "mhd"),
-        DiagnosticChannel("МГД быстрый зонд верт.", "mhd_fast_vertical", "mhd"),
-        DiagnosticChannel("Plasma shift", "plasma_shift", "plasma_position"),
-        DiagnosticChannel(
-            "Emission electrode voltage",
-            "emission_electrode_voltage",
-            "voltage",
-        ),
-        DiagnosticChannel(
-            "Напряжение пучка новый инжектор",
-            "beam_voltage",
-            "voltage",
-        ),
-        DiagnosticChannel(
-            "Up (внутреннее 175 петля)",
-            "up_inner",
-            "voltage",
-        ),
-        DiagnosticChannel(
-            "Up (внешнее,183 петля, 171 канал)",
-            "up_outer",
-            "voltage",
-        ),
-        DiagnosticChannel("U PF3", "u_pf3", "voltage"),
-        DiagnosticChannel("Радиометр 8 mm", "radiometer_8mm", "radiometer"),
-        DiagnosticChannel(
-            "Диамагнитный сигнал (новый инт.)",
-            "diamagnetic",
-            "diamagnetic",
-        ),
+    DiagnosticChannel("D-alfa нижний купол", "dalpha_lower_dome", "d_alpha"),
+    DiagnosticChannel("D-alfa верхний купол", "dalpha_upper_dome", "d_alpha"),
+    DiagnosticChannel("D-alfa  хорда R=50 cm", "dalpha_r50", "d_alpha"),
+    DiagnosticChannel("D-alfa  хорда R=42 cm", "dalpha_r42", "d_alpha"),
+    DiagnosticChannel("D-alpha (на столб)", "dalpha_column", "d_alpha"),
+    DiagnosticChannel("МГД наружный       ", "mhd_outer", "mhd"),
+    DiagnosticChannel("МГД быстрый зонд рад.", "mhd_fast_radial", "mhd"),
+    DiagnosticChannel("МГД быстрый зонд тор.", "mhd_fast_toroidal", "mhd"),
+    DiagnosticChannel("МГД быстрый зонд верт.", "mhd_fast_vertical", "mhd"),
+    DiagnosticChannel("ФДУК  1 (на столб)", "fduk_column", "fduk"),
+    DiagnosticChannel("ФДУК 3 (периферийный)", "fduk_peripheral", "fduk"),
+    DiagnosticChannel("ФДУК  2 (обзорный)", "fduk_overview", "fduk"),
+    DiagnosticChannel("Plasma shift", "plasma_shift", "plasma_position"),
+    DiagnosticChannel(
+        "Emission electrode voltage",
+        "emission_electrode_voltage",
+        "voltage",
+    ),
+    DiagnosticChannel(
+        "Напряжение пучка новый инжектор",
+        "beam_voltage",
+        "voltage",
+    ),
+    DiagnosticChannel(
+        "Up (внутреннее 175 петля)",
+        "up_inner",
+        "voltage",
+    ),
+    DiagnosticChannel(
+        "Up (внешнее,183 петля, 171 канал)",
+        "up_outer",
+        "voltage",
+    ),
+    DiagnosticChannel("U PF3", "u_pf3", "voltage"),
+    DiagnosticChannel("Радиометр 8 mm", "radiometer_8mm", "radiometer"),
+    DiagnosticChannel(
+        "Диамагнитный сигнал (новый инт.)",
+        "diamagnetic",
+        "diamagnetic",
+    ),
 )
 
 
 REFERENCE_SXR_FEATURE_PROFILE = DiagnosticChannelProfile(
     name="reference_sxr",
-    channels=(),
+    channels=tuple(
+        channel
+        for channel in _FULL_DIAGNOSTIC_CHANNELS
+        if channel.group == "d_alpha"
+    ),
 )
 
 CORE_DIAGNOSTICS_FEATURE_PROFILE = DiagnosticChannelProfile(
@@ -118,7 +115,7 @@ CORE_DIAGNOSTICS_FEATURE_PROFILE = DiagnosticChannelProfile(
     channels=tuple(
         channel
         for channel in _FULL_DIAGNOSTIC_CHANNELS
-        if channel.group in {"plasma_current", "d_alpha", "mhd"}
+        if channel.group in {"d_alpha", "mhd", "fduk"}
     ),
 )
 
@@ -126,10 +123,6 @@ FULL_FEATURE_PROFILE = DiagnosticChannelProfile(
     name="full",
     channels=_FULL_DIAGNOSTIC_CHANNELS,
 )
-
-# Backward-compatible import name used throughout the project.  It now means
-# the explicitly named full feature-map profile.
-MULTICHANNEL_FEATURE_PROFILE = FULL_FEATURE_PROFILE
 
 FEATURE_MAP_PROFILES = {
     profile.name: profile

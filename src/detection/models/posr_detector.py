@@ -235,7 +235,10 @@ class WaveletPOSRDetector:
 
         # compute_posr_weights already evaluates local maxima separated by the
         # fixed 0.15 ms technical peak distance.  Do not add period-based NMS.
-        peaks = np.flatnonzero(eligible >= self.threshold)
+        # Weights are zero outside local POSR maxima.  With this explicit
+        # condition threshold=0 means "all actual POSR peaks", not every time
+        # sample on the detector grid.
+        peaks = np.flatnonzero((eligible > 0.0) & (eligible >= self.threshold))
         candidates: list[CrashCandidate] = []
         for peak in peaks:
             local_period = self._local_period(int(peak), period, period_map)
@@ -294,4 +297,3 @@ class WaveletPOSRDetector:
                 debug=debug,
             )
         )
-

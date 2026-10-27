@@ -5,8 +5,8 @@ import numpy as np
 
 from config.path import SXR_CHANNELS
 from config.channels import (
+    CORE_DIAGNOSTICS_FEATURE_PROFILE,
     DiagnosticChannelProfile,
-    MULTICHANNEL_FEATURE_PROFILE,
 )
 from src.detection.utils.features import (
     SINGLE_CHANNEL_FEATURE_NAMES,
@@ -23,12 +23,41 @@ _CHANNEL_FEATURE_NAMES = (
     "max_abs_period_slope",
     "change_offset_period",
 )
+_D_ALPHA_FEATURE_NAMES = (
+    "coverage",
+    "positive_peak_z",
+    "peak_prominence_z",
+    "positive_area_z",
+    "rise_slope_period",
+    "peak_offset_period",
+)
+_EXTREMUM_FEATURE_NAMES = (
+    "coverage",
+    "signed_extremum_z",
+    "extremum_prominence_z",
+    "max_abs_period_slope",
+    "derivative_reversal_period",
+    "extremum_offset_period",
+)
 _GROUP_FEATURE_NAMES = (
     "coverage",
     "median_delta_z",
     "max_abs_jump_z",
     "max_abs_period_slope",
 )
+_D_ALPHA_GROUP_FEATURE_NAMES = (
+    "coverage",
+    "median_positive_peak_z",
+    "max_peak_prominence_z",
+    "peak_support_fraction",
+)
+_EXTREMUM_GROUP_FEATURE_NAMES = (
+    "coverage",
+    "median_abs_extremum_z",
+    "max_extremum_prominence_z",
+    "extremum_support_fraction",
+)
+_EXTREMUM_GROUPS = frozenset({"mhd", "fduk"})
 _PROPOSAL_FEATURE_NAMES = (
     "source_channel_count",
     "method_count",
@@ -124,6 +153,52 @@ class _ChannelFeatures:
                 self.log_energy_ratio,
                 self.max_abs_period_slope,
                 self.change_offset_period,
+            ],
+            dtype=float,
+        )
+
+
+@dataclass(frozen=True)
+class _DAlphaFeatures:
+    coverage: float
+    positive_peak_z: float
+    peak_prominence_z: float
+    positive_area_z: float
+    rise_slope_period: float
+    peak_offset_period: float
+
+    def as_array(self) -> np.ndarray:
+        return np.asarray(
+            [
+                self.coverage,
+                self.positive_peak_z,
+                self.peak_prominence_z,
+                self.positive_area_z,
+                self.rise_slope_period,
+                self.peak_offset_period,
+            ],
+            dtype=float,
+        )
+
+
+@dataclass(frozen=True)
+class _ExtremumFeatures:
+    coverage: float
+    signed_extremum_z: float
+    extremum_prominence_z: float
+    max_abs_period_slope: float
+    derivative_reversal_period: float
+    extremum_offset_period: float
+
+    def as_array(self) -> np.ndarray:
+        return np.asarray(
+            [
+                self.coverage,
+                self.signed_extremum_z,
+                self.extremum_prominence_z,
+                self.max_abs_period_slope,
+                self.derivative_reversal_period,
+                self.extremum_offset_period,
             ],
             dtype=float,
         )
@@ -230,14 +305,170 @@ def _channel_features(
     )
 
 
+def _d_alpha_features(
+    values: np.ndarray,
+    valid_mask: np.ndarray,
+    index: int,
+    radius: int,
+    dt: float,
+    period: float,
+    min_valid_samples: int,
+    standardized: Optional[np.ndarray] = None,
+) -> _DAlphaFeatures:
+    """Describe the positive D-alpha burst expected near an SXR crash."""
+
+    start = max(0, index - radius)
+    stop = min(len(values), index + radius + 1)
+    valid_mask = np.asarray(valid_mask, dtype=bool) & np.isfinite(values)
+    local_valid = valid_mask[start:stop]
+    coverage = float(np.mean(local_valid)) if len(local_valid) else 0.0
+    if standardized is None:
+        standardized = _robust_standardize(values, valid_mask)
+
+    pre = standardized[start:index]
+    around = standardized[start:stop]
+    pre = pre[np.isfinite(pre)]
+    finite_positions = np.flatnonzero(np.isfinite(around))
+    if len(pre) < min_valid_samples or len(finite_positions) < min_valid_samples:
+        return _DAlphaFeatures(
+            coverage=coverage,
+            positive_peak_z=np.nan,
+            peak_prominence_z=np.nan,
+            positive_area_z=np.nan,
+            rise_slope_period=np.nan,
+            peak_offset_period=np.nan,
+        )
+
+    baseline = float(np.median(pre))
+    peak_local = int(
+        finite_positions[np.argmax(around[finite_positions])]
+    )
+    peak_value = float(around[peak_local])
+    positive_peak = max(peak_value - baseline, 0.0)
+
+    tail = around[peak_local + 1:]
+    tail = tail[np.isfinite(tail)]
+    after_level = float(np.median(tail)) if len(tail) else baseline
+    prominence = max(peak_value - max(baseline, after_level), 0.0)
+
+    positive_values = around[np.isfinite(around)] - baseline
+    positive_area = float(np.mean(np.maximum(positive_values, 0.0)))
+
+    rise = around[:peak_local + 1]
+    adjacent_valid = np.isfinite(rise[:-1]) & np.isfinite(rise[1:])
+    if np.any(adjacent_valid):
+        differences = np.diff(rise)[adjacent_valid]
+        rise_slope = max(float(np.max(differences)), 0.0) * period / dt
+    else:
+        rise_slope = np.nan
+
+    peak_index = start + peak_local
+    peak_offset = (peak_index - index) * dt / period
+    return _DAlphaFeatures(
+        coverage=coverage,
+        positive_peak_z=positive_peak,
+        peak_prominence_z=prominence,
+        positive_area_z=positive_area,
+        rise_slope_period=float(rise_slope),
+        peak_offset_period=float(peak_offset),
+    )
+
+
+def _extremum_features(
+    values: np.ndarray,
+    valid_mask: np.ndarray,
+    index: int,
+    radius: int,
+    dt: float,
+    period: float,
+    min_valid_samples: int,
+    standardized: Optional[np.ndarray] = None,
+) -> _ExtremumFeatures:
+    """Describe a positive or negative local extremum near a candidate."""
+
+    start = max(0, index - radius)
+    stop = min(len(values), index + radius + 1)
+    valid_mask = np.asarray(valid_mask, dtype=bool) & np.isfinite(values)
+    local_valid = valid_mask[start:stop]
+    coverage = float(np.mean(local_valid)) if len(local_valid) else 0.0
+    if standardized is None:
+        standardized = _robust_standardize(values, valid_mask)
+
+    pre = standardized[start:index]
+    around = standardized[start:stop]
+    pre = pre[np.isfinite(pre)]
+    finite_positions = np.flatnonzero(np.isfinite(around))
+    if len(pre) < min_valid_samples or len(finite_positions) < min_valid_samples:
+        return _ExtremumFeatures(
+            coverage=coverage,
+            signed_extremum_z=np.nan,
+            extremum_prominence_z=np.nan,
+            max_abs_period_slope=np.nan,
+            derivative_reversal_period=np.nan,
+            extremum_offset_period=np.nan,
+        )
+
+    baseline = float(np.median(pre))
+    deviations = around[finite_positions] - baseline
+    extremum_local = int(finite_positions[np.argmax(np.abs(deviations))])
+    extremum_value = float(around[extremum_local])
+    signed_extremum = extremum_value - baseline
+
+    left = around[:extremum_local]
+    right = around[extremum_local + 1:]
+    left = left[np.isfinite(left)]
+    right = right[np.isfinite(right)]
+    left_level = float(np.median(left)) if len(left) else baseline
+    right_level = float(np.median(right)) if len(right) else baseline
+    if signed_extremum >= 0:
+        prominence = max(extremum_value - max(left_level, right_level), 0.0)
+    else:
+        prominence = max(min(left_level, right_level) - extremum_value, 0.0)
+
+    differences = np.diff(around)
+    adjacent_valid = np.isfinite(around[:-1]) & np.isfinite(around[1:])
+    valid_differences = differences[adjacent_valid]
+    max_abs_slope = (
+        float(np.max(np.abs(valid_differences))) * period / dt
+        if len(valid_differences)
+        else np.nan
+    )
+
+    before = np.diff(around[:extremum_local + 1])
+    after = np.diff(around[extremum_local:])
+    before = before[np.isfinite(before)]
+    after = after[np.isfinite(after)]
+    if len(before) and len(after):
+        if signed_extremum >= 0:
+            approach = max(float(np.max(before)), 0.0)
+            departure = max(float(-np.min(after)), 0.0)
+        else:
+            approach = max(float(-np.min(before)), 0.0)
+            departure = max(float(np.max(after)), 0.0)
+        reversal = min(approach, departure) * period / dt
+    else:
+        reversal = np.nan
+
+    extremum_index = start + extremum_local
+    offset = (extremum_index - index) * dt / period
+    return _ExtremumFeatures(
+        coverage=coverage,
+        signed_extremum_z=float(signed_extremum),
+        extremum_prominence_z=float(prominence),
+        max_abs_period_slope=float(max_abs_slope),
+        derivative_reversal_period=float(reversal),
+        extremum_offset_period=float(offset),
+    )
+
+
 class MultichannelFeatureBuilder:
     """Build one deterministic ML vector for a candidate on the plasma grid."""
 
-    SCHEMA_VERSION = 5
+    SCHEMA_VERSION = 2
 
     def __init__(
         self,
-        profile: DiagnosticChannelProfile = MULTICHANNEL_FEATURE_PROFILE,
+        profile: DiagnosticChannelProfile = CORE_DIAGNOSTICS_FEATURE_PROFILE,
         window_config: Optional[FeatureWindowConfig] = None,
     ):
         self.profile = profile
@@ -260,14 +491,25 @@ class MultichannelFeatureBuilder:
                     for feature in _SXR_FEATURE_NAMES
                 )
         for channel in self.profile.channels:
+            if channel.group == "d_alpha":
+                channel_feature_names = _D_ALPHA_FEATURE_NAMES
+            elif channel.group in _EXTREMUM_GROUPS:
+                channel_feature_names = _EXTREMUM_FEATURE_NAMES
+            else:
+                channel_feature_names = _CHANNEL_FEATURE_NAMES
             names.extend(
                 f"channel__{channel.key}__{feature}"
-                for feature in _CHANNEL_FEATURE_NAMES
+                for feature in channel_feature_names
             )
         for group in self.profile.groups:
+            if group == "d_alpha":
+                group_feature_names = _D_ALPHA_GROUP_FEATURE_NAMES
+            elif group in _EXTREMUM_GROUPS:
+                group_feature_names = _EXTREMUM_GROUP_FEATURE_NAMES
+            else:
+                group_feature_names = _GROUP_FEATURE_NAMES
             names.extend(
-                f"group__{group}__{feature}"
-                for feature in _GROUP_FEATURE_NAMES
+                f"group__{group}__{feature}" for feature in group_feature_names
             )
         if self.include_proposals:
             names.extend(f"proposal__{name}" for name in _PROPOSAL_FEATURE_NAMES)
@@ -406,11 +648,20 @@ class MultichannelFeatureBuilder:
                         jump_to_noise,
                     ]
                 )
-        features_by_channel: dict[str, _ChannelFeatures] = {}
+        features_by_channel: dict[
+            str,
+            _ChannelFeatures | _DAlphaFeatures | _ExtremumFeatures,
+        ] = {}
 
         for diagnostic in self.profile.channels:
             channel = aligned.get_channel(diagnostic.name)
-            features = _channel_features(
+            if diagnostic.group == "d_alpha":
+                feature_fn = _d_alpha_features
+            elif diagnostic.group in _EXTREMUM_GROUPS:
+                feature_fn = _extremum_features
+            else:
+                feature_fn = _channel_features
+            features = feature_fn(
                 channel.values,
                 channel.valid_mask,
                 index=index,
@@ -433,20 +684,98 @@ class MultichannelFeatureBuilder:
                 for channel in self.profile.channels
                 if channel.group == group
             ]
-            result.extend(
-                [
-                    float(np.mean([features.coverage for features in group_features])),
-                    _finite_median(
-                        [features.median_delta_z for features in group_features]
-                    ),
-                    _finite_max_abs(
-                        [features.signed_jump_z for features in group_features]
-                    ),
-                    _finite_max_abs(
-                        [features.max_abs_period_slope for features in group_features]
-                    ),
+            if group == "d_alpha":
+                d_alpha_features = [
+                    features
+                    for features in group_features
+                    if isinstance(features, _DAlphaFeatures)
                 ]
-            )
+                finite_prominences = np.asarray(
+                    [features.peak_prominence_z for features in d_alpha_features],
+                    dtype=float,
+                )
+                finite_prominences = finite_prominences[
+                    np.isfinite(finite_prominences)
+                ]
+                result.extend(
+                    [
+                        float(np.mean([features.coverage for features in d_alpha_features])),
+                        _finite_median(
+                            [features.positive_peak_z for features in d_alpha_features]
+                        ),
+                        (
+                            float(np.max(finite_prominences))
+                            if len(finite_prominences)
+                            else np.nan
+                        ),
+                        (
+                            float(np.mean(finite_prominences >= 1.0))
+                            if len(finite_prominences)
+                            else np.nan
+                        ),
+                    ]
+                )
+            elif group in _EXTREMUM_GROUPS:
+                extremum_features = [
+                    features
+                    for features in group_features
+                    if isinstance(features, _ExtremumFeatures)
+                ]
+                finite_prominences = np.asarray(
+                    [
+                        features.extremum_prominence_z
+                        for features in extremum_features
+                    ],
+                    dtype=float,
+                )
+                finite_prominences = finite_prominences[
+                    np.isfinite(finite_prominences)
+                ]
+                result.extend(
+                    [
+                        float(
+                            np.mean(
+                                [features.coverage for features in extremum_features]
+                            )
+                        ),
+                        _finite_median(
+                            [
+                                abs(features.signed_extremum_z)
+                                for features in extremum_features
+                            ]
+                        ),
+                        (
+                            float(np.max(finite_prominences))
+                            if len(finite_prominences)
+                            else np.nan
+                        ),
+                        (
+                            float(np.mean(finite_prominences >= 1.0))
+                            if len(finite_prominences)
+                            else np.nan
+                        ),
+                    ]
+                )
+            else:
+                regular_features = [
+                    features
+                    for features in group_features
+                    if isinstance(features, _ChannelFeatures)
+                ]
+                result.extend(
+                    [
+                        float(np.mean([features.coverage for features in regular_features])),
+                        _finite_median(
+                            [features.median_delta_z for features in regular_features]
+                        ),
+                        _finite_max_abs(
+                            [features.signed_jump_z for features in regular_features]
+                        ),
+                        _finite_max_abs(
+                            [features.max_abs_period_slope for features in regular_features]
+                        ),
+                    ]
+                )
 
         if self.include_proposals and proposal_evidence is None:
             result.extend([np.nan] * len(_PROPOSAL_FEATURE_NAMES))
